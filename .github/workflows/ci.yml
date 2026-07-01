@@ -1,0 +1,173 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  lint-and-test:
+    name: Lint + PHPStan + Unit Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: aiwa_test
+          POSTGRES_USER: aiwa
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo, pdo_pgsql, pgsql, redis, mbstring, zip, bcmath, intl, gd, pcntl, opcache
+          coverage: none
+
+      - name: Cache Composer deps
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install Composer deps
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Copy .env
+        run: |
+          cp .env.example .env
+          sed -i 's/DB_HOST=127.0.0.1/DB_HOST=127.0.0.1/' .env
+          sed -i 's/DB_DATABASE=aiwa_staging_db/DB_DATABASE=aiwa_test/' .env
+          sed -i 's/DB_USERNAME=aiwa_staging/DB_USERNAME=aiwa/' .env
+          echo 'DB_PASSWORD=secret' >> .env
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Run migrations
+        run: php artisan migrate --force
+
+      - name: ESLint (frontend)
+        run: |
+          if [ -f package.json ]; then
+            npm ci && npm run lint
+          else
+            echo "No package.json — skipping ESLint"
+          fi
+
+      - name: PHPStan
+        run: |
+          if [ -f phpstan.neon ] || [ -f phpstan.neon.dist ]; then
+            vendor/bin/phpstan analyse --no-progress
+          else
+            echo "No phpstan config — skipping (add phpstan.neon in Sprint 1)"
+          fi
+
+      - name: PHP CS Fixer (lint)
+        run: |
+          if [ -f .php-cs-fixer.php ] || [ -f .php-cs-fixer.dist.php ]; then
+            vendor/bin/php-cs-fixer fix --dry-run --diff
+          else
+            echo "No CS fixer config — skipping (add in Sprint 1)"
+          fi
+
+      - name: Unit tests
+        run: php artisan test --parallel
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: aiwa_test
+          DB_USERNAME: aiwa
+          DB_PASSWORD: secret
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          APP_ENV: testing
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            set -e
+            RELEASE_DIR="/var/www/aiwa-receptionist/releases/$(date +%Y%m%d%H%M%S)"
+            SHARED_DIR="/var/www/aiwa-receptionist/shared"
+            CURRENT_LINK="/var/www/aiwa-receptionist/current"
+
+            # Clone fresh release
+            git clone git@github.com:RiyasRouf/business-receptionist.git "$RELEASE_DIR"
+            cd "$RELEASE_DIR"
+
+            # Link shared dirs
+            ln -sf "$SHARED_DIR/storage" "$RELEASE_DIR/storage"
+            ln -sf "$SHARED_DIR/.env" "$RELEASE_DIR/.env"
+
+            # Install deps
+            composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+
+            # Run migrations
+            php artisan migrate --force
+
+            # Cache config/routes
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            # Atomic symlink swap
+            ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+
+            # Reload PHP-FPM (zero downtime)
+            sudo systemctl reload php8.3-fpm
+
+            # Restart Horizon if present
+            if php artisan horizon:status > /dev/null 2>&1; then
+              php artisan horizon:terminate
+            fi
+
+            # Health check
+            sleep 2
+            HTTP_STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/health)
+            if [ "$HTTP_STATUS" != "200" ]; then
+              echo "Health check failed: HTTP $HTTP_STATUS"
+              exit 1
+            fi
+            echo "Deploy complete. Health: $HTTP_STATUS"
+
+            # Keep last 5 releases
+            ls -dt /var/www/aiwa-receptionist/releases/* | tail -n +6 | xargs rm -rf

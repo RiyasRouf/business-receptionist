@@ -1,0 +1,31 @@
+# Laravel
+/vendor/
+/node_modules/
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+/bootstrap/cache/
+/public/hot
+/public/storage
+/storage/*.key
+/storage/logs/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/views/
+
+# Frontend
+/public/build/
+npm-debug.log
+yarn-error.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker secrets
+docker/secrets/
