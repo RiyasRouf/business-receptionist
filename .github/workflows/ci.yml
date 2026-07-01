@@ -119,7 +119,7 @@ jobs:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     needs: lint-and-test
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push' && hashFiles('composer.json') != ''
 
     steps:
       - name: Checkout
