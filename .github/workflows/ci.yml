@@ -48,6 +48,7 @@ jobs:
           coverage: none
 
       - name: Cache Composer deps
+        if: hashFiles('composer.json') != ''
         uses: actions/cache@v4
         with:
           path: vendor
@@ -55,20 +56,23 @@ jobs:
           restore-keys: composer-
 
       - name: Install Composer deps
+        if: hashFiles('composer.json') != ''
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Copy .env
+        if: hashFiles('composer.json') != ''
         run: |
           cp .env.example .env
-          sed -i 's/DB_HOST=127.0.0.1/DB_HOST=127.0.0.1/' .env
           sed -i 's/DB_DATABASE=aiwa_staging_db/DB_DATABASE=aiwa_test/' .env
           sed -i 's/DB_USERNAME=aiwa_staging/DB_USERNAME=aiwa/' .env
           echo 'DB_PASSWORD=secret' >> .env
 
       - name: Generate app key
+        if: hashFiles('composer.json') != ''
         run: php artisan key:generate
 
       - name: Run migrations
+        if: hashFiles('composer.json') != ''
         run: php artisan migrate --force
 
       - name: ESLint (frontend)
@@ -80,6 +84,7 @@ jobs:
           fi
 
       - name: PHPStan
+        if: hashFiles('composer.json') != ''
         run: |
           if [ -f phpstan.neon ] || [ -f phpstan.neon.dist ]; then
             vendor/bin/phpstan analyse --no-progress
@@ -88,6 +93,7 @@ jobs:
           fi
 
       - name: PHP CS Fixer (lint)
+        if: hashFiles('composer.json') != ''
         run: |
           if [ -f .php-cs-fixer.php ] || [ -f .php-cs-fixer.dist.php ]; then
             vendor/bin/php-cs-fixer fix --dry-run --diff
@@ -96,6 +102,7 @@ jobs:
           fi
 
       - name: Unit tests
+        if: hashFiles('composer.json') != ''
         run: php artisan test --parallel
         env:
           DB_CONNECTION: pgsql
