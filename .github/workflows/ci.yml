@@ -93,7 +93,8 @@ jobs:
         if: steps.check_app.outputs.has_app == 'true'
         run: |
           if [ -f package.json ]; then
-            npm ci && npm run lint
+            npm ci
+            npm run lint --if-present
           else
             echo "No package.json — skipping ESLint"
           fi
