@@ -71,7 +71,17 @@ jobs:
 
       - name: Install Composer deps
         if: steps.check_app.outputs.has_app == 'true'
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+        run: |
+          set +e
+          composer install --no-interaction --prefer-dist --optimize-autoloader --verbose > /tmp/composer-install.log 2>&1
+          EXIT=$?
+          cat /tmp/composer-install.log
+          if [ $EXIT -ne 0 ]; then
+            tail -n 40 /tmp/composer-install.log | while IFS= read -r line; do
+              echo "::error::${line}"
+            done
+          fi
+          exit $EXIT
 
       - name: Copy .env
         if: steps.check_app.outputs.has_app == 'true'
