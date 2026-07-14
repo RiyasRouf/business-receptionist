@@ -77,9 +77,8 @@ jobs:
           EXIT=$?
           cat /tmp/composer-install.log
           if [ $EXIT -ne 0 ]; then
-            tail -n 40 /tmp/composer-install.log | while IFS= read -r line; do
-              echo "::error::${line}"
-            done
+            TAIL=$(tail -n 20 /tmp/composer-install.log | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error::TAIL_OF_LOG: ${TAIL}"
           fi
           exit $EXIT
 
