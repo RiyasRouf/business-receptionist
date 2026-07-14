@@ -170,10 +170,12 @@ jobs:
             sudo gcloud auth activate-service-account --key-file="$KEY_FILE" --project=business-receptionist
             DB_PW=$(sudo gcloud secrets versions access latest --secret=staging-db-password --project=business-receptionist)
             JWT_SECRET_VAL=$(sudo gcloud secrets versions access latest --secret=staging-jwt-secret --project=business-receptionist)
+            GEMINI_KEY=$(sudo gcloud secrets versions access latest --secret=gemini-api-key --project=business-receptionist)
             sudo gcloud auth revoke --all >/dev/null 2>&1 || true
             sudo gcloud config set account 487102398686-compute@developer.gserviceaccount.com >/dev/null 2>&1
             sudo sed -i "s#^DB_PASSWORD=.*#DB_PASSWORD=${DB_PW}#" "$SHARED_DIR/.env"
             sudo sed -i "s#^JWT_SECRET=.*#JWT_SECRET=${JWT_SECRET_VAL}#" "$SHARED_DIR/.env"
+            sudo sed -i "s#^GEMINI_API_KEY=.*#GEMINI_API_KEY=${GEMINI_KEY}#" "$SHARED_DIR/.env"
 
             # Install deps
             composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
