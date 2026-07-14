@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    // Primary AI model (OQ-003 resolved, D-015-01). Platform-level default
+    // only — per-tenant selection is via tenant_config (ADR-053).
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
+        'embedding_model' => env('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001'),
+    ],
+
 ];
