@@ -255,5 +255,27 @@ class ConversationEngine
         Redis::rpush($key, json_encode(['role' => $role, 'content' => $content]));
         Redis::ltrim($key, -self::SLIDING_WINDOW, -1);
         Redis::expire($key, 1800); // 30 min TTL, matches DATA_ARCHITECTURE §7 Active session TTL
+
+        // Full, unbounded log — separate from the capped context window
+        // above. ADR-052 says "full history persisted to DB"; this is
+        // the durable source Module 10 (Media/transcript) reads from at
+        // session end, since the capped window loses turns 11+ on any
+        // call longer than 10 exchanges.
+        $fullLogKey = "tenant:{$session->tenant_id}:session:{$session->session_id}:full_log";
+        Redis::rpush($fullLogKey, json_encode(['role' => $role, 'content' => $content]));
+        Redis::expire($fullLogKey, 1800);
+    }
+
+    /**
+     * @return array<int, array{role: string, content: string}>
+     */
+    public function getFullTurnLog(Session $session): array
+    {
+        $key = "tenant:{$session->tenant_id}:session:{$session->session_id}:full_log";
+
+        return array_map(
+            fn (string $json) => json_decode($json, true),
+            Redis::lrange($key, 0, -1)
+        );
     }
 }

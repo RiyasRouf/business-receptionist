@@ -3,6 +3,8 @@
 use App\Modules\CorePlatform\Http\Middleware\JwtAuthenticate;
 use App\Modules\CorePlatform\Http\Middleware\RequireRole;
 use App\Modules\CorePlatform\Http\Middleware\ResolveTenant;
+use App\Modules\OutboxRelay\Console\ConsumePostCallEventsCommand;
+use App\Modules\OutboxRelay\Console\RelayOutboxCommand;
 use App\Modules\WhatsAppAdapter\Http\Middleware\VerifyWhatsAppSignature;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -15,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([
+        RelayOutboxCommand::class,
+        ConsumePostCallEventsCommand::class,
+    ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'jwt.auth' => JwtAuthenticate::class,

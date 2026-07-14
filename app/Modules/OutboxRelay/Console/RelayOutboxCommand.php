@@ -9,15 +9,23 @@ use Illuminate\Support\Facades\Redis;
 
 /**
  * Relay process — the only writer of outbox.status (ADR-056). Polls
- * pending rows, XADDs to a per-tenant Redis Stream, marks published.
+ * pending rows, XADDs to a single shared Redis Stream, marks published.
  * After MAX_RETRIES, moves to dead_letter instead of retrying forever
  * (ADR-023 DLQ; "manual replay" = an operator resets status back to
  * pending). This is a basic polling relay, not a full consumer-group
  * pipeline with ack tracking — sufficient for MVP volume, documented
  * as a scaling limitation rather than pretending otherwise.
+ *
+ * One shared stream, not per-tenant: platform-level consumers (Media,
+ * Summary) process events across every tenant, and Redis has no
+ * wildcard XREAD across an unbounded set of per-tenant stream keys.
+ * tenant_id already lives in the envelope (ADR-012) for any consumer
+ * that needs to filter/route by tenant.
  */
 class RelayOutboxCommand extends Command
 {
+    public const STREAM_KEY = 'platform:events';
+
     private const MAX_RETRIES = 5;
 
     private const BATCH_SIZE = 100;
@@ -38,11 +46,10 @@ class RelayOutboxCommand extends Command
 
         foreach ($rows as $row) {
             try {
-                $streamKey = "tenant:{$row->tenant_id}:events";
-
-                Redis::xadd($streamKey, '*', [
+                Redis::xadd(self::STREAM_KEY, '*', [
                     'event_id' => $row->event_id,
                     'event_type' => $row->event_type,
+                    'tenant_id' => $row->tenant_id,
                     'payload' => json_encode($row->payload),
                 ]);
 

@@ -3,6 +3,7 @@
 use App\Models\User;
 use App\Modules\CorePlatform\Http\Controllers\AuthController;
 use App\Modules\KnowledgeBase\Http\Controllers\KnowledgeBaseController;
+use App\Modules\Media\Http\Controllers\TranscriptController;
 use App\Modules\WhatsAppAdapter\Http\Controllers\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,13 @@ Route::prefix('v1')->group(function () {
     Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
     Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'receive'])
         ->middleware('whatsapp.signature');
+
+    // Signed URL is its own time-limited auth (ADR-064) — deliberately
+    // outside jwt.auth so a link can be shared/opened without a fresh
+    // token, but the 'signed' middleware rejects any tampered/expired URL.
+    Route::get('/transcripts/{transcript}/download', [TranscriptController::class, 'download'])
+        ->middleware('signed')
+        ->name('transcripts.download');
 
     Route::middleware('jwt.auth')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
