@@ -2,48 +2,55 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasUuids, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
+    public const ROLE_PLATFORM_ADMIN = 'platform_admin';
+    public const ROLE_TENANT_ADMIN = 'tenant_admin';
+    public const ROLE_STAFF = 'staff';
+
+    protected $primaryKey = 'user_id';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
     protected $fillable = [
+        'tenant_id',
         'name',
         'email',
         'password',
+        'role',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
-        'remember_token',
+        'refresh_token_hash',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'locked_until' => 'datetime',
+            'refresh_token_expires_at' => 'datetime',
         ];
+    }
+
+    public function tenant()
+    {
+        return $this->belongsTo(Tenant::class, 'tenant_id', 'tenant_id');
+    }
+
+    public function isLocked(): bool
+    {
+        return $this->locked_until !== null && $this->locked_until->isFuture();
     }
 }
