@@ -161,6 +161,20 @@ jobs:
             ln -sf "$SHARED_DIR/storage" "$RELEASE_DIR/storage"
             ln -sf "$SHARED_DIR/.env" "$RELEASE_DIR/.env"
 
+            # Refresh secrets from GCP Secret Manager into shared/.env.
+            # .env itself never holds real values in the repo (D-014-02) —
+            # this keeps the on-disk copy in sync with whatever's current
+            # in Secret Manager on every deploy, so a rotation there takes
+            # effect on the next release without manual intervention.
+            KEY_FILE="$SHARED_DIR/secrets/gcp-secretmanager-key.json"
+            sudo gcloud auth activate-service-account --key-file="$KEY_FILE" --project=business-receptionist
+            DB_PW=$(sudo gcloud secrets versions access latest --secret=staging-db-password --project=business-receptionist)
+            JWT_SECRET_VAL=$(sudo gcloud secrets versions access latest --secret=staging-jwt-secret --project=business-receptionist)
+            sudo gcloud auth revoke --all >/dev/null 2>&1 || true
+            sudo gcloud config set account 487102398686-compute@developer.gserviceaccount.com >/dev/null 2>&1
+            sudo sed -i "s#^DB_PASSWORD=.*#DB_PASSWORD=${DB_PW}#" "$SHARED_DIR/.env"
+            sudo sed -i "s#^JWT_SECRET=.*#JWT_SECRET=${JWT_SECRET_VAL}#" "$SHARED_DIR/.env"
+
             # Install deps
             composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
 
