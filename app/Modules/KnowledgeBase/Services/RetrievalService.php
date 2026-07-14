@@ -5,6 +5,7 @@ namespace App\Modules\KnowledgeBase\Services;
 use App\Models\TenantConfig;
 use App\Modules\KnowledgeBase\Contracts\EmbeddingProviderInterface;
 use App\Modules\KnowledgeBase\Contracts\RerankerInterface;
+use App\Modules\KnowledgeBase\ValueObjects\RetrievalResult;
 use Illuminate\Support\Facades\DB;
 
 class RetrievalService
@@ -27,6 +28,18 @@ class RetrievalService
      * @return array<int, array{chunk_id: string, content: string, similarity: float, rerank_score: float}>
      */
     public function retrieve(string $tenantId, string $query, ?int $topK = null): array
+    {
+        return $this->retrieveDetailed($tenantId, $query, $topK)->chunks;
+    }
+
+    /**
+     * Same as retrieve() but also exposes the before/after-threshold
+     * counts (AI_ARCHITECTURE.md §11 kb_chunks_retrieved/kb_chunks_injected)
+     * for AI turn lineage recording — kept as a separate method rather
+     * than changing retrieve()'s return shape, since KnowledgeBaseController
+     * already depends on the flat array contract.
+     */
+    public function retrieveDetailed(string $tenantId, string $query, ?int $topK = null): RetrievalResult
     {
         $topK ??= self::DEFAULT_TOP_K;
         $threshold = $this->relevanceThreshold($tenantId);
@@ -51,10 +64,16 @@ class RetrievalService
 
         $reranked = $this->reranker->rerank($query, $candidates);
 
-        return array_values(array_filter(
+        $injected = array_values(array_filter(
             $reranked,
             fn (array $c) => $c['rerank_score'] >= $threshold
         ));
+
+        return new RetrievalResult(
+            chunks: $injected,
+            retrievedCount: count($rows),
+            injectedCount: count($injected),
+        );
     }
 
     private function relevanceThreshold(string $tenantId): float

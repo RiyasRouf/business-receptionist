@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\CorePlatform\Http\Middleware\AddTraceId;
 use App\Modules\CorePlatform\Http\Middleware\JwtAuthenticate;
 use App\Modules\CorePlatform\Http\Middleware\RequireRole;
 use App\Modules\CorePlatform\Http\Middleware\ResolveTenant;
@@ -28,6 +29,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RequireRole::class,
             'whatsapp.signature' => VerifyWhatsAppSignature::class,
         ]);
+
+        $middleware->append(AddTraceId::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // API-only backend — always render JSON errors, regardless of the

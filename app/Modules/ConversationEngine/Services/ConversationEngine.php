@@ -2,6 +2,7 @@
 
 namespace App\Modules\ConversationEngine\Services;
 
+use App\Models\AiTurnLineage;
 use App\Models\Session;
 use App\Modules\AIAdapter\Contracts\AIProviderInterface;
 use App\Modules\ConversationEngine\ValueObjects\ConversationState;
@@ -9,6 +10,7 @@ use App\Modules\ConversationEngine\ValueObjects\EscalationTrigger;
 use App\Modules\ConversationEngine\ValueObjects\Intent;
 use App\Modules\ConversationEngine\ValueObjects\LeadField;
 use App\Modules\ConversationEngine\ValueObjects\TurnResult;
+use App\Modules\CorePlatform\Services\TraceContext;
 use App\Modules\KnowledgeBase\Services\RetrievalService;
 use App\Modules\LeadCapture\Services\LeadCaptureService;
 use App\Modules\OutboxRelay\Services\OutboxService;
@@ -39,6 +41,7 @@ class ConversationEngine
         private readonly LeadCaptureService $leadCapture,
         private readonly EscalationService $escalation,
         private readonly OutboxService $outbox,
+        private readonly TraceContext $trace,
     ) {}
 
     public function startSession(string $tenantId, string $channel, ?string $callerNumber = null): Session
@@ -115,9 +118,11 @@ class ConversationEngine
 
     private function handleEnquiry(Session $session, array $meta, string $input): TurnResult
     {
+        $startedAt = microtime(true);
         $fallbackPhrase = "I'm not able to confirm that — I'll have our team follow up with you directly.";
 
-        $results = $this->retrieval->retrieve($session->tenant_id, $input, 5);
+        $retrieval = $this->retrieval->retrieveDetailed($session->tenant_id, $input, 5);
+        $results = $retrieval->chunks;
         $kbMatched = $results !== [];
 
         $context = $kbMatched
@@ -135,6 +140,8 @@ class ConversationEngine
         $postCheck = $this->guardrails->postCheck($aiResponse->content, $kbMatched, $fallbackPhrase);
         $response = $postCheck->passed ? $aiResponse->content : $postCheck->fallbackResponse;
         $response = $this->guardrails->redactPii($response);
+
+        $this->recordLineage($session, $aiResponse, $retrieval, $postCheck, $startedAt);
 
         if ($postCheck->shouldEscalate) {
             $this->escalation->escalate($session, EscalationTrigger::GuardrailPostCheckFailure);
@@ -277,5 +284,47 @@ class ConversationEngine
             fn (string $json) => json_decode($json, true),
             Redis::lrange($key, 0, -1)
         );
+    }
+
+    /**
+     * AI_ARCHITECTURE.md §11 (Observability) + §12 (Evaluation Lineage).
+     * Recorded per turn regardless of pass/fail so regression analysis
+     * and replay work even for guardrail-blocked turns.
+     */
+    private function recordLineage(
+        Session $session,
+        \App\Modules\AIAdapter\ValueObjects\AIResponse $aiResponse,
+        \App\Modules\KnowledgeBase\ValueObjects\RetrievalResult $retrieval,
+        \App\Modules\ConversationEngine\ValueObjects\GuardrailResult $postCheck,
+        float $startedAt,
+    ): void {
+        $knowledgeSnapshotId = null;
+
+        if ($retrieval->chunks !== []) {
+            $firstChunk = \App\Models\KbChunk::find($retrieval->chunks[0]['chunk_id']);
+            $knowledgeSnapshotId = $firstChunk?->metadata_json['knowledge_snapshot_id'] ?? null;
+        }
+
+        AiTurnLineage::create([
+            'tenant_id' => $session->tenant_id,
+            'session_id' => $session->session_id,
+            'trace_id' => $this->trace->get(),
+            'tokens_prompt' => $aiResponse->promptTokens,
+            'tokens_completion' => $aiResponse->completionTokens,
+            'latency_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'kb_chunks_retrieved' => $retrieval->retrievedCount,
+            'kb_chunks_injected' => $retrieval->injectedCount,
+            'guardrail_triggered' => ! $postCheck->passed,
+            'guardrail_stage' => $postCheck->passed ? 'none' : 'post',
+            'provider_used' => 'primary', // fallback chain not built yet — Module 5 real-provider blocker
+            'provider_id' => $aiResponse->provider,
+            'model_id' => $aiResponse->modelId,
+            'model_version' => $aiResponse->modelId,
+            'prompt_version' => 'v1', // no tenant_config prompt versioning UI yet (Sprint 5, Platform/School Admin)
+            'knowledge_snapshot_id' => $knowledgeSnapshotId,
+            'guardrail_version' => 'v1',
+            'retrieval_strategy_version' => 'v1',
+            'confidence_score' => $retrieval->chunks[0]['rerank_score'] ?? null,
+        ]);
     }
 }

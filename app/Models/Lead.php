@@ -24,6 +24,7 @@ class Lead extends Model
         'session_id',
         'status',
         'fields_json',
+        'phone_hash',
     ];
 
     protected function casts(): array

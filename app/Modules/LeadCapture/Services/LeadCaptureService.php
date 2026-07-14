@@ -2,6 +2,7 @@
 
 namespace App\Modules\LeadCapture\Services;
 
+use App\Models\AuditLog;
 use App\Models\Lead;
 use App\Modules\ConversationEngine\ValueObjects\LeadField;
 
@@ -36,6 +37,12 @@ class LeadCaptureService
 
         $lead->fields_json = $fields;
         $lead->status = $this->allMvpMinimumPresent($fields) ? 'complete' : 'partial';
+
+        if ($field === LeadField::ParentPhone) {
+            $lead->phone_hash = $this->hashPhone($value);
+            $this->flagIfDuplicate($lead);
+        }
+
         $lead->save();
 
         return $lead;
@@ -61,5 +68,40 @@ class LeadCaptureService
         }
 
         return true;
+    }
+
+    /**
+     * fields_json values are individually encrypted with a random nonce
+     * per call — the same phone number never produces the same
+     * ciphertext twice, so it can't be looked up directly (F-06/Sprint 3
+     * "deduplication" AC). Normalised-and-hashed instead. Detection +
+     * staff-visible flag, not automatic merging — merging duplicate
+     * leads automatically risks silently dropping data from one of them.
+     */
+    private function hashPhone(string $rawPhone): string
+    {
+        $normalised = preg_replace('/[^0-9+]/', '', $rawPhone);
+
+        return hash('sha256', $normalised);
+    }
+
+    private function flagIfDuplicate(Lead $lead): void
+    {
+        $duplicate = Lead::where('tenant_id', $lead->tenant_id)
+            ->where('phone_hash', $lead->phone_hash)
+            ->where('lead_id', '!=', $lead->lead_id ?? '')
+            ->first();
+
+        if ($duplicate === null) {
+            return;
+        }
+
+        AuditLog::create([
+            'tenant_id' => $lead->tenant_id,
+            'action' => 'lead.possible_duplicate',
+            'resource_type' => 'lead',
+            'resource_id' => $lead->lead_id,
+            'diff_json' => ['duplicate_of_lead_id' => $duplicate->lead_id],
+        ]);
     }
 }

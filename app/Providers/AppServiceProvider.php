@@ -9,6 +9,7 @@ use App\Modules\CorePlatform\Contracts\JwtServiceInterface;
 use App\Modules\CorePlatform\Contracts\PiiEncryptionServiceInterface;
 use App\Modules\CorePlatform\Services\JwtService;
 use App\Modules\CorePlatform\Services\PiiEncryptionService;
+use App\Modules\CorePlatform\Services\TraceContext;
 use App\Modules\KnowledgeBase\Contracts\EmbeddingProviderInterface;
 use App\Modules\KnowledgeBase\Contracts\RerankerInterface;
 use App\Modules\KnowledgeBase\Services\MockEmbeddingProvider;
@@ -26,6 +27,15 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(JwtServiceInterface::class, JwtService::class);
         $this->app->singleton(PiiEncryptionServiceInterface::class, PiiEncryptionService::class);
+
+        // Must be a singleton — one trace_id per request/CLI invocation
+        // (ADR-013). Without this, every injected instance is
+        // independent and get() lazily mints its own random UUID,
+        // silently breaking trace propagation between AddTraceId
+        // middleware (which sets it) and anything that reads it later
+        // (e.g. AI turn lineage) — confirmed via a real test where the
+        // manually-set trace_id never reached ConversationEngine.
+        $this->app->singleton(TraceContext::class);
 
         // Platform-level default only (config('ai.provider')) — per-tenant
         // selection is via tenant_config (ADR-053), not this binding.
