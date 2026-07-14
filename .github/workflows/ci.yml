@@ -71,16 +71,7 @@ jobs:
 
       - name: Install Composer deps
         if: steps.check_app.outputs.has_app == 'true'
-        run: |
-          set +e
-          composer install --no-interaction --prefer-dist --optimize-autoloader --verbose > /tmp/composer-install.log 2>&1
-          EXIT=$?
-          cat /tmp/composer-install.log
-          if [ $EXIT -ne 0 ]; then
-            TAIL=$(tail -n 20 /tmp/composer-install.log | sed ':a;N;$!ba;s/\n/%0A/g')
-            echo "::error::TAIL_OF_LOG: ${TAIL}"
-          fi
-          exit $EXIT
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Copy .env
         if: steps.check_app.outputs.has_app == 'true'
