@@ -13,6 +13,8 @@ use App\Modules\KnowledgeBase\Contracts\EmbeddingProviderInterface;
 use App\Modules\KnowledgeBase\Contracts\RerankerInterface;
 use App\Modules\KnowledgeBase\Services\MockEmbeddingProvider;
 use App\Modules\KnowledgeBase\Services\MockReranker;
+use App\Modules\WhatsAppAdapter\Contracts\MessagingAdapterInterface;
+use App\Modules\WhatsAppAdapter\Services\WhatsAppAdapter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -44,6 +46,8 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(RerankerInterface::class, MockReranker::class);
+
+        $this->app->singleton(MessagingAdapterInterface::class, WhatsAppAdapter::class);
     }
 
     /**

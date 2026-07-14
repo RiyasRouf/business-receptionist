@@ -3,6 +3,7 @@
 use App\Modules\CorePlatform\Http\Middleware\JwtAuthenticate;
 use App\Modules\CorePlatform\Http\Middleware\RequireRole;
 use App\Modules\CorePlatform\Http\Middleware\ResolveTenant;
+use App\Modules\WhatsAppAdapter\Http\Middleware\VerifyWhatsAppSignature;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'jwt.auth' => JwtAuthenticate::class,
             'tenant.resolve' => ResolveTenant::class,
             'role' => RequireRole::class,
+            'whatsapp.signature' => VerifyWhatsAppSignature::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

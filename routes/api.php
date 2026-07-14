@@ -3,11 +3,18 @@
 use App\Models\User;
 use App\Modules\CorePlatform\Http\Controllers\AuthController;
 use App\Modules\KnowledgeBase\Http\Controllers\KnowledgeBaseController;
+use App\Modules\WhatsAppAdapter\Http\Controllers\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
+
+    // Meta calls these directly — no JWT, HMAC signature is the auth
+    // mechanism (ADR-021). voice_webhook-equivalent system role.
+    Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify']);
+    Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'receive'])
+        ->middleware('whatsapp.signature');
 
     Route::middleware('jwt.auth')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
