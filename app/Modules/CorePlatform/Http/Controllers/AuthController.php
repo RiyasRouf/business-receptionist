@@ -4,6 +4,7 @@ namespace App\Modules\CorePlatform\Http\Controllers;
 
 use App\Models\User;
 use App\Modules\CorePlatform\Contracts\JwtServiceInterface;
+use App\Modules\CorePlatform\Http\ApiResponse;
 use App\Modules\CorePlatform\Services\AccountLockoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController
 {
+    use ApiResponse;
+
     public function __construct(
         private readonly JwtServiceInterface $jwt,
         private readonly AccountLockoutService $lockout,
@@ -32,7 +35,7 @@ class AuthController
         }
 
         if ($user->isLocked()) {
-            return response()->json(['error' => 'Account locked. Try again later.'], 423);
+            return $this->error('account_locked', 'Account locked. Try again later.', 423);
         }
 
         if (! Hash::check($credentials['password'], $user->password)) {
@@ -51,14 +54,14 @@ class AuthController
         $refreshToken = $request->cookie('refresh_token');
 
         if (! $refreshToken) {
-            return response()->json(['error' => 'Missing refresh token'], 401);
+            return $this->error('missing_refresh_token', 'Missing refresh token.', 401);
         }
 
         $hash = hash('sha256', $refreshToken);
         $user = User::where('refresh_token_hash', $hash)->first();
 
         if (! $user || $user->refresh_token_expires_at === null || $user->refresh_token_expires_at->isPast()) {
-            return response()->json(['error' => 'Invalid or expired refresh token'], 401);
+            return $this->error('invalid_refresh_token', 'Invalid or expired refresh token.', 401);
         }
 
         return $this->issueTokenResponse($user);
@@ -75,7 +78,7 @@ class AuthController
             ]);
         }
 
-        return response()->json(['message' => 'Logged out'])
+        return $this->success(['message' => 'Logged out'])
             ->withCookie(cookie()->forget('refresh_token'));
     }
 
@@ -96,7 +99,7 @@ class AuthController
             sameSite: 'strict',
         );
 
-        return response()->json([
+        return $this->success([
             'access_token' => $accessToken,
             'token_type' => 'Bearer',
             'expires_in' => Config::integer('jwt.ttl') * 60,

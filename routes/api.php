@@ -3,6 +3,7 @@
 use App\Models\User;
 use App\Modules\CorePlatform\Http\Controllers\AuthController;
 use App\Modules\CorePlatform\Http\Controllers\ReadinessController;
+use App\Modules\CorePlatform\Http\Controllers\TenantController;
 use App\Modules\KnowledgeBase\Http\Controllers\KnowledgeBaseController;
 use App\Modules\LeadCapture\Http\Controllers\LeadController;
 use App\Modules\Media\Http\Controllers\TranscriptController;
@@ -31,14 +32,22 @@ Route::prefix('v1')->group(function () {
     Route::middleware('jwt.auth')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
+        // Role-agnostic — every authenticated user (including
+        // platform_admin, who has no tenant_id and would be rejected by
+        // tenant.resolve) needs this to bootstrap the app on page load.
+        Route::get('/me', fn (\Illuminate\Http\Request $request) => response()->json([
+            'success' => true,
+            'data' => [
+                'user_id' => $request->attributes->get('auth_user_id'),
+                'tenant_id' => $request->attributes->get('auth_tenant_id'),
+                'role' => $request->attributes->get('auth_role'),
+            ],
+            'trace_id' => app(\App\Modules\CorePlatform\Services\TraceContext::class)->get(),
+        ]));
+
+        // Tenant-scoped — tenant_admin/staff only.
         Route::middleware(['tenant.resolve', 'role:'.User::ROLE_TENANT_ADMIN.','.User::ROLE_STAFF])
             ->group(function () {
-                Route::get('/me', fn (\Illuminate\Http\Request $request) => response()->json([
-                    'user_id' => $request->attributes->get('auth_user_id'),
-                    'tenant_id' => $request->attributes->get('auth_tenant_id'),
-                    'role' => $request->attributes->get('auth_role'),
-                ]));
-
                 Route::get('/kb/documents', [KnowledgeBaseController::class, 'index']);
                 Route::post('/kb/documents', [KnowledgeBaseController::class, 'store']);
                 Route::delete('/kb/documents/{documentId}', [KnowledgeBaseController::class, 'destroy']);
@@ -48,5 +57,14 @@ Route::prefix('v1')->group(function () {
                 Route::get('/leads/{leadId}', [LeadController::class, 'show']);
                 Route::patch('/leads/{leadId}/status', [LeadController::class, 'updateStatus']);
             });
+
+        // Platform-wide — platform_admin only. No tenant.resolve: a
+        // platform admin has no single tenant_id of their own (F-16/F-17).
+        Route::middleware('role:'.User::ROLE_PLATFORM_ADMIN)->group(function () {
+            Route::get('/admin/tenants', [TenantController::class, 'index']);
+            Route::post('/admin/tenants', [TenantController::class, 'store']);
+            Route::get('/admin/tenants/{tenantId}', [TenantController::class, 'show']);
+            Route::put('/admin/tenants/{tenantId}/allowances', [TenantController::class, 'setAllowance']);
+        });
     });
 });

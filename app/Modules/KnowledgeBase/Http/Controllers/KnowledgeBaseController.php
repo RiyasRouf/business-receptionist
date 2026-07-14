@@ -3,6 +3,7 @@
 namespace App\Modules\KnowledgeBase\Http\Controllers;
 
 use App\Models\KbDocument;
+use App\Modules\CorePlatform\Http\ApiResponse;
 use App\Modules\KnowledgeBase\Services\KnowledgeBaseService;
 use App\Modules\KnowledgeBase\Services\RetrievalService;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\Storage;
 
 class KnowledgeBaseController
 {
+    use ApiResponse;
+
     public function __construct(
         private readonly KnowledgeBaseService $kb,
         private readonly RetrievalService $retrieval,
@@ -24,7 +27,7 @@ class KnowledgeBaseController
             ->orderByDesc('created_at')
             ->get(['document_id', 'title', 'status', 'created_at']);
 
-        return response()->json(['data' => $documents]);
+        return $this->success($documents);
     }
 
     public function store(Request $request): JsonResponse
@@ -43,7 +46,7 @@ class KnowledgeBaseController
 
         $document = $this->kb->ingest($tenantId, $validated['title'], $path, $rawText);
 
-        return response()->json(['data' => $document], 201);
+        return $this->success($document, status: 201);
     }
 
     public function destroy(Request $request, string $documentId): JsonResponse
@@ -56,7 +59,7 @@ class KnowledgeBaseController
 
         $this->kb->delete($document);
 
-        return response()->json(['message' => 'Deleted']);
+        return $this->success(['message' => 'Deleted']);
     }
 
     public function search(Request $request): JsonResponse
@@ -74,6 +77,6 @@ class KnowledgeBaseController
             $validated['top_k'] ?? null
         );
 
-        return response()->json(['data' => $results]);
+        return $this->success($results);
     }
 }

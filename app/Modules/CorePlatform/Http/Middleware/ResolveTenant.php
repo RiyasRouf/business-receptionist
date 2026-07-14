@@ -2,6 +2,7 @@
 
 namespace App\Modules\CorePlatform\Http\Middleware;
 
+use App\Modules\CorePlatform\Http\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,12 +14,14 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ResolveTenant
 {
+    use ApiResponse;
+
     public function handle(Request $request, Closure $next): Response
     {
         $tenantId = $request->attributes->get('auth_tenant_id');
 
         if ($tenantId === null) {
-            return response()->json(['error' => 'No tenant context on token'], 403);
+            return $this->error('no_tenant_context', 'No tenant context on token.', 403);
         }
 
         app()->instance('current_tenant_id', $tenantId);
