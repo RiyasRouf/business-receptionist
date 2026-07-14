@@ -5,18 +5,25 @@ import { useAuth } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/routes/ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { PlatformAdminDashboard } from '@/pages/PlatformAdminDashboard'
-import { DashboardPlaceholder } from '@/pages/DashboardPlaceholder'
+import { SchoolAdminDashboard } from '@/pages/SchoolAdminDashboard'
+import { StaffReviewDashboard } from '@/pages/StaffReviewDashboard'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 })
+
+function homeFor(role: string): string {
+  if (role === 'platform_admin') return '/admin'
+  if (role === 'tenant_admin') return '/school'
+  return '/leads'
+}
 
 function RootRedirect() {
   const { user } = useAuth()
 
   if (!user) return <Navigate to="/login" replace />
 
-  return <Navigate to={user.role === 'platform_admin' ? '/admin' : '/dashboard'} replace />
+  return <Navigate to={homeFor(user.role)} replace />
 }
 
 function AppRoutes() {
@@ -39,8 +46,17 @@ function AppRoutes() {
         <Route path="/admin" element={<PlatformAdminDashboard />} />
       </Route>
 
-      <Route element={<ProtectedRoute allowedRoles={['tenant_admin', 'staff']} />}>
-        <Route path="/dashboard" element={<DashboardPlaceholder />} />
+      {/* tenant_admin: knowledge base management (F-16/F-17). staff:
+          lead review (F-14/F-15). Each role gets its own home for now —
+          a combined view for tenant_admin (who arguably wants both) is
+          a reasonable follow-up, not built here to avoid guessing at
+          IA/nav structure that's really a design decision. */}
+      <Route element={<ProtectedRoute allowedRoles={['tenant_admin']} />}>
+        <Route path="/school" element={<SchoolAdminDashboard />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={['staff']} />}>
+        <Route path="/leads" element={<StaffReviewDashboard />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
