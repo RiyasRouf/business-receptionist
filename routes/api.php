@@ -2,10 +2,14 @@
 
 use App\Models\User;
 use App\Modules\CorePlatform\Http\Controllers\AuthController;
+use App\Modules\CorePlatform\Http\Controllers\ReadinessController;
 use App\Modules\KnowledgeBase\Http\Controllers\KnowledgeBaseController;
+use App\Modules\LeadCapture\Http\Controllers\LeadController;
 use App\Modules\Media\Http\Controllers\TranscriptController;
 use App\Modules\WhatsAppAdapter\Http\Controllers\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/ready', [ReadinessController::class, 'check']);
 
 Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login']);
@@ -39,6 +43,10 @@ Route::prefix('v1')->group(function () {
                 Route::post('/kb/documents', [KnowledgeBaseController::class, 'store']);
                 Route::delete('/kb/documents/{documentId}', [KnowledgeBaseController::class, 'destroy']);
                 Route::post('/kb/search', [KnowledgeBaseController::class, 'search']);
+
+                Route::get('/leads', [LeadController::class, 'index']);
+                Route::get('/leads/{leadId}', [LeadController::class, 'show']);
+                Route::patch('/leads/{leadId}/status', [LeadController::class, 'updateStatus']);
             });
     });
 });
