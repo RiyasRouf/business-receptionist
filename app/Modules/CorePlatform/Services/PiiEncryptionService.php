@@ -33,6 +33,20 @@ class PiiEncryptionService implements PiiEncryptionServiceInterface
 
     private ?SecretManagerServiceClient $client = null;
 
+    /**
+     * Per-request key cache. Bound as a singleton, so this lives for one
+     * HTTP request/CLI invocation — not persisted across requests. Without
+     * this, every encrypt()/decrypt() call (e.g. reading a Lead's
+     * fields_json, which decrypts N fields individually) does N live
+     * Secret Manager round-trips even when they're all the same tenant's
+     * current key. Found via a real timeout: 21 conversation turns each
+     * re-decrypting an already-complete lead's 6 fields blew well past
+     * the 800ms/turn target (ADR-047) from GCP latency alone.
+     *
+     * @var array<string, string>
+     */
+    private array $keyCache = [];
+
     public function encrypt(string $tenantId, string $plaintext): string
     {
         [$key, $version] = $this->getOrCreateLatestKey($tenantId);
@@ -94,6 +108,12 @@ class PiiEncryptionService implements PiiEncryptionServiceInterface
      */
     private function getOrCreateLatestKey(string $tenantId): array
     {
+        $cacheKey = "latest:{$tenantId}";
+
+        if (isset($this->keyCache[$cacheKey])) {
+            return [$this->keyCache[$cacheKey], $this->keyCache["{$cacheKey}:version"]];
+        }
+
         $client = $this->client();
         $secretId = $this->secretId($tenantId);
         $project = Config::string('gcp.project_id');
@@ -103,8 +123,13 @@ class PiiEncryptionService implements PiiEncryptionServiceInterface
             $response = $client->accessSecretVersion((new AccessSecretVersionRequest())->setName($name));
 
             $version = basename($response->getName());
+            $key = $response->getPayload()->getData();
 
-            return [$response->getPayload()->getData(), $version];
+            $this->keyCache[$cacheKey] = $key;
+            $this->keyCache["{$cacheKey}:version"] = $version;
+            $this->keyCache["version:{$tenantId}:{$version}"] = $key;
+
+            return [$key, $version];
         } catch (\Throwable) {
             return $this->createTenantKey($tenantId);
         }
@@ -143,11 +168,21 @@ class PiiEncryptionService implements PiiEncryptionServiceInterface
 
         $version = basename($response->getName());
 
+        $this->keyCache["latest:{$tenantId}"] = $keyBytes;
+        $this->keyCache["latest:{$tenantId}:version"] = $version;
+        $this->keyCache["version:{$tenantId}:{$version}"] = $keyBytes;
+
         return [$keyBytes, $version];
     }
 
     private function getKeyVersion(string $tenantId, string $version): string
     {
+        $cacheKey = "version:{$tenantId}:{$version}";
+
+        if (isset($this->keyCache[$cacheKey])) {
+            return $this->keyCache[$cacheKey];
+        }
+
         $client = $this->client();
         $project = Config::string('gcp.project_id');
         $secretId = $this->secretId($tenantId);
@@ -155,7 +190,10 @@ class PiiEncryptionService implements PiiEncryptionServiceInterface
         $name = SecretManagerServiceClient::secretVersionName($project, $secretId, $version);
         $response = $client->accessSecretVersion((new AccessSecretVersionRequest())->setName($name));
 
-        return $response->getPayload()->getData();
+        $key = $response->getPayload()->getData();
+        $this->keyCache[$cacheKey] = $key;
+
+        return $key;
     }
 
     private function secretId(string $tenantId): string
