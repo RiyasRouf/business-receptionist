@@ -5,8 +5,9 @@ namespace App\Modules\WhatsAppAdapter\Events;
 use App\Modules\WhatsAppAdapter\ValueObjects\InboundMessage;
 
 /**
- * Fired per normalised inbound message. No listeners wired yet —
- * routing to the Conversation Engine is Module 7 (Sprint 3).
+ * Fired per normalised inbound message. Handled by
+ * App\Listeners\ProcessWhatsAppTurn, which routes it into the
+ * Conversation Engine.
  */
 class WhatsAppMessageReceived
 {

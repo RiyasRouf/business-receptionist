@@ -15,7 +15,10 @@ use App\Modules\KnowledgeBase\Contracts\RerankerInterface;
 use App\Modules\KnowledgeBase\Services\MockEmbeddingProvider;
 use App\Modules\KnowledgeBase\Services\MockReranker;
 use App\Modules\WhatsAppAdapter\Contracts\MessagingAdapterInterface;
+use App\Modules\WhatsAppAdapter\Events\WhatsAppMessageReceived;
 use App\Modules\WhatsAppAdapter\Services\WhatsAppAdapter;
+use App\Listeners\ProcessWhatsAppTurn;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -65,6 +68,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Event::listen(WhatsAppMessageReceived::class, ProcessWhatsAppTurn::class);
     }
 }

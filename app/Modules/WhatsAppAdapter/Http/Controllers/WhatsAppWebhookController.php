@@ -49,20 +49,16 @@ class WhatsAppWebhookController
                 continue; // Already processed — Meta retry, no-op (ADR-024)
             }
 
-            Event::dispatch(new WhatsAppMessageReceived($message));
-
             Log::info('whatsapp.message_received', [
                 'from' => $message->from,
                 'message_id' => $message->providerMessageId,
             ]);
 
-            // Conversation Engine (Module 7, Sprint 3) isn't built yet —
-            // stub acknowledgement so the sandbox round-trip is verifiable
-            // now rather than silently swallowing inbound messages.
-            $this->adapter->send(
-                $message->from,
-                "Thanks for reaching out — we've received your message and will follow up shortly."
-            );
+            // ProcessWhatsAppTurn (app/Listeners) routes this into the
+            // ConversationEngine and sends the reply — synchronous, since
+            // Meta's webhook timeout comfortably covers one AI turn and
+            // this avoids depending on a queue worker being up on staging.
+            Event::dispatch(new WhatsAppMessageReceived($message));
         }
 
         return response('EVENT_RECEIVED', 200);

@@ -183,6 +183,9 @@ jobs:
             # Run migrations
             php artisan migrate --force
 
+            # Sprint 6 UAT seed data — idempotent (firstOrCreate), staging only
+            php artisan db:seed --force
+
             # Cache config/routes
             php artisan config:cache
             php artisan route:cache
