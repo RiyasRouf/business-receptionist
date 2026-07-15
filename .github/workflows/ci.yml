@@ -153,8 +153,10 @@ jobs:
             SHARED_DIR="/var/www/aiwa-receptionist/shared"
             CURRENT_LINK="/var/www/aiwa-receptionist/current"
 
-            # Clone fresh release
-            git clone git@github.com:RiyasRouf/business-receptionist.git "$RELEASE_DIR"
+            # Clone fresh release — HTTPS, not SSH: repo is public, and this
+            # avoids needing a deploy key + known_hosts entry provisioned on
+            # every deploy target.
+            git clone https://github.com/RiyasRouf/business-receptionist.git "$RELEASE_DIR"
             cd "$RELEASE_DIR"
 
             # Link shared dirs
