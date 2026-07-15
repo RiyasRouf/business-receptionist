@@ -119,7 +119,7 @@ jobs:
 
       - name: Unit tests
         if: steps.check_app.outputs.has_app == 'true'
-        run: php artisan test --parallel
+        run: php artisan test
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
