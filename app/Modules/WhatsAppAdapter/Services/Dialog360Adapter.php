@@ -92,16 +92,26 @@ class Dialog360Adapter implements MessagingAdapterInterface
     }
 
     /**
-     * 360dialog has no HMAC-over-body scheme — it sends HTTP Basic Auth
-     * credentials (configured in their Hub) on every webhook request.
-     * $rawBody is unused here (kept for interface compatibility); the
-     * "signature header" is actually the raw Authorization header value,
-     * e.g. "Basic base64(user:pass)".
+     * 360dialog has no HMAC-over-body scheme. Production webhooks
+     * registered via their Hub UI can carry HTTP Basic Auth credentials
+     * you configure there; the Sandbox webhook registration API
+     * (POST .../v1/configs/webhook) only accepts a bare url, no auth
+     * config at all — sandbox requests arrive with nothing to check.
+     * $rawBody is unused (kept for interface compatibility); the
+     * "signature header" is the raw Authorization header value, e.g.
+     * "Basic base64(user:pass)".
      */
     public function verifySignature(string $rawBody, string $signatureHeader): bool
     {
         $expectedUser = Config::string('services.dialog360.webhook_user');
         $expectedPass = Config::string('services.dialog360.webhook_pass');
+
+        if ($expectedUser === '' && $expectedPass === '') {
+            // Sandbox mode — nothing configured to check against, and
+            // 360dialog's sandbox sends no auth of its own to verify.
+            return true;
+        }
+
         $expected = 'Basic '.base64_encode("{$expectedUser}:{$expectedPass}");
 
         return hash_equals($expected, $signatureHeader);
