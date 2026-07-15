@@ -213,5 +213,7 @@ jobs:
             fi
             echo "Deploy complete. Health: $HTTP_STATUS"
 
-            # Keep last 5 releases
-            ls -dt /var/www/aiwa-receptionist/releases/* | tail -n +6 | xargs rm -rf
+            # Keep last 5 releases — sudo: older releases from manual
+            # out-of-band deploys are www-data-owned, not writable by the
+            # deploy user via group perms alone.
+            ls -dt /var/www/aiwa-receptionist/releases/* | tail -n +6 | xargs -r sudo rm -rf
