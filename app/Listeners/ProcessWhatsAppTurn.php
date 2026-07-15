@@ -8,6 +8,7 @@ use App\Modules\ConversationEngine\Services\ConversationEngine;
 use App\Modules\ConversationEngine\ValueObjects\ConversationState;
 use App\Modules\WhatsAppAdapter\Contracts\MessagingAdapterInterface;
 use App\Modules\WhatsAppAdapter\Events\WhatsAppMessageReceived;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 
 /**
@@ -59,7 +60,15 @@ class ProcessWhatsAppTurn
 
         $result = $this->engine->processTurn($session, $message->body);
 
-        $this->adapter->send($message->from, $result->response);
+        $sendResult = $this->adapter->send($message->from, $result->response);
+
+        if (! $sendResult->success) {
+            Log::error('whatsapp.send_failed', [
+                'session_id' => $session->session_id,
+                'to' => $message->from,
+                'error' => $sendResult->error,
+            ]);
+        }
 
         if (in_array($result->state, [ConversationState::Confirming, ConversationState::Escalating], true)) {
             $this->engine->completeSession($session);
