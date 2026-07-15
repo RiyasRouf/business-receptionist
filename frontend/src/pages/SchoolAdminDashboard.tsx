@@ -57,9 +57,11 @@ export function SchoolAdminDashboard() {
       formData.append('title', title)
       formData.append('file', file)
 
-      return api.post('/kb/documents', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      // Don't set Content-Type manually — the browser must generate it
+      // (including the multipart boundary) from the FormData body itself.
+      // A hardcoded 'multipart/form-data' header has no boundary param,
+      // so the server can't parse the body and sees no file at all.
+      return api.post('/kb/documents', formData)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kb', 'documents'] })
