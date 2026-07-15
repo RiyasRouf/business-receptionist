@@ -156,7 +156,7 @@ jobs:
             # Clone fresh release — HTTPS, not SSH: repo is public, and this
             # avoids needing a deploy key + known_hosts entry provisioned on
             # every deploy target.
-            git clone https://github.com/RiyasRouf/business-receptionist.git "$RELEASE_DIR"
+            git clone --branch develop https://github.com/RiyasRouf/business-receptionist.git "$RELEASE_DIR"
             cd "$RELEASE_DIR"
 
             # Link shared dirs
