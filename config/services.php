@@ -43,6 +43,10 @@ return [
         'embedding_model' => env('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-001'),
     ],
 
+    // Active WhatsApp adapter — 'meta' (direct Cloud API, WhatsAppAdapter)
+    // or '360dialog' (Dialog360Adapter). Same pattern as AI_PROVIDER.
+    'messaging_provider' => env('MESSAGING_PROVIDER', 'meta'),
+
     // WhatsApp Business API sandbox (D-013-01) — Module 6B
     'whatsapp' => [
         'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
@@ -50,6 +54,16 @@ return [
         'app_secret' => env('WHATSAPP_APP_SECRET'),
         'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
         'api_version' => env('WHATSAPP_API_VERSION', 'v21.0'),
+    ],
+
+    // 360dialog — alternative WhatsApp BSP, selectable via
+    // MESSAGING_PROVIDER when Meta's own Developer/business
+    // verification is blocked or pending.
+    'dialog360' => [
+        'api_key' => env('DIALOG360_API_KEY'),
+        'base_url' => env('DIALOG360_BASE_URL', 'https://waba-v2.360dialog.io'),
+        'webhook_user' => env('DIALOG360_WEBHOOK_USER'),
+        'webhook_pass' => env('DIALOG360_WEBHOOK_PASS'),
     ],
 
 ];

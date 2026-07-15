@@ -16,6 +16,7 @@ use App\Modules\KnowledgeBase\Services\MockEmbeddingProvider;
 use App\Modules\KnowledgeBase\Services\MockReranker;
 use App\Modules\WhatsAppAdapter\Contracts\MessagingAdapterInterface;
 use App\Modules\WhatsAppAdapter\Events\WhatsAppMessageReceived;
+use App\Modules\WhatsAppAdapter\Services\Dialog360Adapter;
 use App\Modules\WhatsAppAdapter\Services\WhatsAppAdapter;
 use App\Listeners\ProcessWhatsAppTurn;
 use Illuminate\Support\Facades\Event;
@@ -60,7 +61,17 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(RerankerInterface::class, MockReranker::class);
 
-        $this->app->singleton(MessagingAdapterInterface::class, WhatsAppAdapter::class);
+        // 'meta' (direct Cloud API) or '360dialog' — swappable when Meta's
+        // own Developer/business verification is blocked, same pattern as
+        // AI_PROVIDER. Webhook payload shape is identical between the two
+        // (360dialog is a Meta Business Solution Provider); only outbound
+        // send auth and inbound webhook auth differ (see Dialog360Adapter,
+        // VerifyWhatsAppSignature).
+        $this->app->singleton(MessagingAdapterInterface::class, function ($app) {
+            return config('services.messaging_provider') === '360dialog'
+                ? $app->make(Dialog360Adapter::class)
+                : $app->make(WhatsAppAdapter::class);
+        });
     }
 
     /**
