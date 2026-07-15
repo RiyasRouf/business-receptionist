@@ -182,6 +182,14 @@ jobs:
             # Install deps
             composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
 
+            # Build frontend — nginx serves the SPA directly from
+            # frontend/dist (Vite's default output), which git doesn't
+            # track. Must be rebuilt fresh in every release directory.
+            cd frontend
+            npm ci --no-audit --no-fund
+            npm run build
+            cd ..
+
             # Run migrations
             php artisan migrate --force
 
