@@ -93,7 +93,13 @@ class AuthController
             minutes: Config::integer('jwt.refresh_ttl'),
             path: '/',
             domain: null,
-            secure: true,
+            // Driven by the actual request scheme, not hardcoded — staging
+            // currently has no SSL/domain (D-014-03), so a hardcoded true
+            // makes the browser silently refuse to store this cookie at
+            // all, breaking session persistence across refreshes. Self-
+            // corrects once staging/production get HTTPS, no code change
+            // needed then.
+            secure: request()->isSecure(),
             httpOnly: true,
             raw: false,
             sameSite: 'strict',

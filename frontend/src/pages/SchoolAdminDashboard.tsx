@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type ApiSuccess } from '@/lib/api'
+import { isAxiosError } from 'axios'
+import { api, type ApiError, type ApiSuccess } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -70,7 +71,13 @@ export function SchoolAdminDashboard() {
       setUploadError(null)
       setDialogOpen(false)
     },
-    onError: () => setUploadError('Upload failed. Only .txt/.md files under 10MB are supported.'),
+    onError: (error) => {
+      const message = isAxiosError<ApiError>(error)
+        ? error.response?.data?.message
+        : undefined
+
+      setUploadError(message ?? 'Upload failed. Only .txt/.md files under 10MB are supported.')
+    },
   })
 
   const deleteMutation = useMutation({
