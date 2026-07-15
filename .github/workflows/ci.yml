@@ -159,8 +159,13 @@ jobs:
             git clone --branch develop https://github.com/RiyasRouf/business-receptionist.git "$RELEASE_DIR"
             cd "$RELEASE_DIR"
 
-            # Link shared dirs
-            ln -sf "$SHARED_DIR/storage" "$RELEASE_DIR/storage"
+            # Link shared dirs. storage/ ships as a real directory from git
+            # (tracked .gitignore placeholders) — plain `ln -sf` would drop
+            # the symlink *inside* it instead of replacing it, silently
+            # leaving every release writing to a non-persistent, wrong-owner
+            # local copy. Must remove it first.
+            rm -rf "$RELEASE_DIR/storage"
+            ln -sfn "$SHARED_DIR/storage" "$RELEASE_DIR/storage"
             ln -sf "$SHARED_DIR/.env" "$RELEASE_DIR/.env"
 
             # Refresh secrets from GCP Secret Manager into shared/.env.
