@@ -19,6 +19,12 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- APP_ENV set above makes Laravel's LoadEnvironmentVariables bootstrap
+             look for .env.testing instead of .env — that file doesn't exist here,
+             so safeLoad() silently loads nothing and APP_KEY (only ever generated
+             into .env by the CI "Generate app key" step) never reaches this
+             process. Static test-only key avoids needing a second env file. -->
+        <env name="APP_KEY" value="base64:gl5eSvAYe+VXjqv8o7Kn0U3A4t50EAAFq++vXGlbKws="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
