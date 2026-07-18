@@ -4,9 +4,13 @@ namespace App\Modules\CorePlatform\Http\Controllers;
 
 use App\Models\Tenant;
 use App\Models\UsageAllowance;
+use App\Models\User;
 use App\Modules\CorePlatform\Http\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * F-16/F-17 (Platform Admin: tenant management, usage allowance
@@ -50,19 +54,75 @@ class TenantController
         ]);
     }
 
+    /**
+     * Creates the tenant, its initial call-minutes allowance, and its
+     * first tenant_admin user in one transaction — matches the Milestone
+     * 6 UI/UX spec's "Add New Tenant" flow (one form, one submit).
+     *
+     * No mail transport is configured yet (MAIL_MAILER=log, no Mailable
+     * classes exist) — rather than silently pretend an invite email was
+     * sent, the generated temporary password is returned once in the
+     * response for the Platform Admin to relay manually. Real invite
+     * email is follow-up work once SMTP is set up.
+     */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
             'slug' => ['required', 'string', 'max:255', 'unique:tenants,slug'],
+            'industry' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'country' => ['sometimes', 'nullable', 'string', 'max:100'],
             'status' => ['sometimes', 'string', 'in:active,suspended'],
+            'admin_name' => ['required', 'string', 'max:255'],
+            'admin_email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'monthly_allowance_minutes' => ['sometimes', 'nullable', 'integer', 'min:0'],
         ]);
 
-        $tenant = Tenant::create([
-            'slug' => $validated['slug'],
-            'status' => $validated['status'] ?? 'active',
-        ]);
+        $tempPassword = Str::password(16);
 
-        return $this->success($tenant, status: 201);
+        $result = DB::transaction(function () use ($validated, $tempPassword) {
+            $tenant = Tenant::create([
+                'name' => $validated['name'],
+                'slug' => $validated['slug'],
+                'industry' => $validated['industry'] ?? null,
+                'country' => $validated['country'] ?? null,
+                'status' => $validated['status'] ?? 'active',
+            ]);
+
+            $admin = User::create([
+                'tenant_id' => $tenant->tenant_id,
+                'name' => $validated['admin_name'],
+                'email' => $validated['admin_email'],
+                'password' => Hash::make($tempPassword),
+                'role' => User::ROLE_TENANT_ADMIN,
+                'email_verified_at' => now(),
+            ]);
+
+            $allowance = null;
+
+            if (! empty($validated['monthly_allowance_minutes'])) {
+                $allowance = UsageAllowance::create([
+                    'tenant_id' => $tenant->tenant_id,
+                    'allowance_type' => 'call_minutes',
+                    'limit' => $validated['monthly_allowance_minutes'],
+                    'grace' => 0,
+                    'warning_threshold_pct' => 80,
+                    'reset_period' => 'monthly',
+                    'reset_day' => 1,
+                ]);
+            }
+
+            return [$tenant, $admin, $allowance];
+        });
+
+        [$tenant, $admin, $allowance] = $result;
+
+        return $this->success([
+            'tenant' => $tenant,
+            'admin' => $admin,
+            'allowance' => $allowance,
+            'temporary_password' => $tempPassword,
+        ], status: 201);
     }
 
     public function setAllowance(Request $request, string $tenantId): JsonResponse

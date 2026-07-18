@@ -4,6 +4,8 @@ namespace App\Modules\LeadCapture\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Lead;
+use App\Models\Summary;
+use App\Models\Transcript;
 use App\Modules\CorePlatform\Http\ApiResponse;
 use Illuminate\Http\Request;
 
@@ -50,11 +52,17 @@ class LeadController
             return $this->error('lead_not_found', 'Lead not found.', 404);
         }
 
+        $transcript = Transcript::where('session_id', $lead->session_id)->first();
+        $summary = Summary::where('session_id', $lead->session_id)->first();
+
         return $this->success([
             'lead_id' => $lead->lead_id,
             'session_id' => $lead->session_id,
             'status' => $lead->status,
             'fields' => $lead->fields_json,
+            'transcript' => $transcript?->content,
+            'summary' => $summary?->content,
+            'action_items' => $summary?->action_items_json,
             'created_at' => $lead->created_at?->toIso8601String(),
         ]);
     }

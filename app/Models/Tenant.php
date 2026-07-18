@@ -19,6 +19,9 @@ class Tenant extends Model
 
     protected $fillable = [
         'slug',
+        'name',
+        'industry',
+        'country',
         'plan_id',
         'status',
         'limits_json',

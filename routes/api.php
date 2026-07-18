@@ -2,8 +2,10 @@
 
 use App\Models\User;
 use App\Modules\CorePlatform\Http\Controllers\AuthController;
+use App\Modules\CorePlatform\Http\Controllers\DashboardController;
 use App\Modules\CorePlatform\Http\Controllers\ReadinessController;
 use App\Modules\CorePlatform\Http\Controllers\TenantController;
+use App\Modules\CorePlatform\Http\Controllers\UserController;
 use App\Modules\KnowledgeBase\Http\Controllers\KnowledgeBaseController;
 use App\Modules\LeadCapture\Http\Controllers\LeadController;
 use App\Modules\Media\Http\Controllers\TranscriptController;
@@ -58,6 +60,15 @@ Route::prefix('v1')->group(function () {
                 Route::patch('/leads/{leadId}/status', [LeadController::class, 'updateStatus']);
             });
 
+        // Tenant-scoped — tenant_admin only (team/dashboard management,
+        // not staff-level access).
+        Route::middleware(['tenant.resolve', 'role:'.User::ROLE_TENANT_ADMIN])
+            ->group(function () {
+                Route::get('/team', [UserController::class, 'indexTeam']);
+                Route::post('/team', [UserController::class, 'storeTeam']);
+                Route::get('/dashboard', [DashboardController::class, 'tenant']);
+            });
+
         // Platform-wide — platform_admin only. No tenant.resolve: a
         // platform admin has no single tenant_id of their own (F-16/F-17).
         Route::middleware('role:'.User::ROLE_PLATFORM_ADMIN)->group(function () {
@@ -65,6 +76,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/admin/tenants', [TenantController::class, 'store']);
             Route::get('/admin/tenants/{tenantId}', [TenantController::class, 'show']);
             Route::put('/admin/tenants/{tenantId}/allowances', [TenantController::class, 'setAllowance']);
+            Route::get('/admin/users', [UserController::class, 'indexAdmins']);
+            Route::post('/admin/users', [UserController::class, 'storeAdmin']);
+            Route::get('/admin/dashboard', [DashboardController::class, 'platform']);
         });
     });
 });
