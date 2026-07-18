@@ -14,7 +14,7 @@ const NAV: NavItem[] = [
 interface Model { model_id: string; name: string; input_cost_per_1m: number; output_cost_per_1m: number }
 interface Provider { provider_id: string; name: string; status: string; base_url: string | null; models: Model[] }
 interface Cost { tenant_id: string; tenant_name: string; model: string | null; provider: string | null; tokens: number; turns: number; cost_usd: number }
-interface Tenant { tenant_id: string; name: string | null; slug: string; ai_provider_model_id: string | null; aiModel: (Model & { provider: { name: string } }) | null }
+interface Tenant { tenant_id: string; name: string | null; slug: string; ai_provider_model_id: string | null; ai_model: (Model & { provider: { name: string } }) | null }
 
 async function fetchProviders(): Promise<Provider[]> {
   return (await api.get<ApiSuccess<Provider[]>>('/admin/ai-providers')).data.data
@@ -178,7 +178,7 @@ export function PlatformAdminAIProviders() {
             {tenants?.map((t) => (
               <tr key={t.tenant_id}>
                 <td style={{ fontWeight: 600 }}>{t.name ?? t.slug}</td>
-                <td>{t.aiModel ? <div className="bdg b-in">{t.aiModel.provider.name} · {t.aiModel.name}</div> : <div className="bdg b-gy">Unassigned</div>}</td>
+                <td>{t.ai_model ? <div className="bdg b-in">{t.ai_model.provider.name} · {t.ai_model.name}</div> : <div className="bdg b-gy">Unassigned</div>}</td>
                 <td>
                   <select
                     value={t.ai_provider_model_id ?? ''}

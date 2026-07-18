@@ -18,7 +18,7 @@ const BUSINESS_ADMIN = 'tenant_admin'
 interface TeamMember {
   user_id: string; name: string; email: string; role: string
   job_title: string | null; custom_role_id: string | null
-  customRole: { role_id: string; name: string } | null
+  custom_role: { role_id: string; name: string } | null
   locked_until: string | null; created_at: string
 }
 interface CreateResult { user: TeamMember; temporary_password: string }
@@ -122,7 +122,7 @@ export function BusinessAdminTeam() {
                 <td>
                   {m.role === 'tenant_admin'
                     ? <div className="bdg b-pu">Business Admin</div>
-                    : (m.customRole ? <div className="bdg b-cy">{m.customRole.name}</div> : <div className="bdg b-gy">No role assigned</div>)}
+                    : (m.custom_role ? <div className="bdg b-cy">{m.custom_role.name}</div> : <div className="bdg b-gy">No role assigned</div>)}
                 </td>
                 <td>{m.job_title ?? '—'}</td>
                 <td><div className="bdg b-ok">Active</div></td>
