@@ -3,9 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type ApiSuccess } from '@/lib/api'
 import { Shell } from '@/components/Shell'
+import { LogoUploader } from '@/components/LogoUploader'
 import { PLATFORM_NAV } from '@/lib/nav'
 
-interface PlatformSetting { id: number; name: string; color: string; tagline: string }
+interface PlatformSetting { id: number; name: string; color: string; tagline: string; logo_url: string | null }
 interface TenantRow { tenant_id: string; name: string | null; brand_name: string | null; brand_color: string | null }
 
 async function fetchPlatform(): Promise<PlatformSetting> {
@@ -42,6 +43,7 @@ export function PlatformAdminBranding() {
       <div className="card" style={{ marginBottom: 20, border: '2px solid #C7D2FE' }}>
         <div className="ct">Platform Branding</div>
         <div className="cs">Global brand shown on the login page and Platform Admin screens. Tenants have their own separate branding.</div>
+        <LogoUploader logoUrl={data?.logo_url ?? null} uploadUrl="/admin/branding/logo" deleteUrl="/admin/branding/logo" queryKey={['admin', 'branding']} />
         <div className="fg"><label className="fl">Platform Name</label><input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
         <div className="fg"><label className="fl">Primary Colour</label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

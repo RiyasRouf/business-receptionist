@@ -1,7 +1,25 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { authStore } from '@/lib/auth-store'
 import { useAuth } from '@/hooks/use-auth'
+import { api, type ApiSuccess } from '@/lib/api'
+
+// Tenant brand endpoint returns brand_name/brand_color; platform brand
+// endpoint returns name/color — normalized below since Shell serves both.
+interface BrandData {
+  name?: string
+  color?: string
+  brand_name?: string | null
+  brand_color?: string | null
+  logo_url: string | null
+}
+
+async function fetchBrand(role: 'platform' | 'business'): Promise<BrandData> {
+  const url = role === 'platform' ? '/admin/branding' : '/branding'
+
+  return (await api.get<ApiSuccess<BrandData>>(url)).data.data
+}
 
 export interface NavItem {
   label: string
@@ -28,6 +46,13 @@ interface ShellProps {
 export function Shell({ role, logo, roleLabel, navItems, activePath, title, subtitle, topbarActions, children }: ShellProps) {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { data: brand } = useQuery({
+    queryKey: role === 'platform' ? ['admin', 'branding'] : ['branding'],
+    queryFn: () => fetchBrand(role),
+  })
+
+  const brandName = brand?.brand_name ?? brand?.name
+  const accentColor = brand?.brand_color ?? brand?.color
 
   const initials = (user?.name ?? '?')
     .split(' ')
@@ -43,12 +68,14 @@ export function Shell({ role, logo, roleLabel, navItems, activePath, title, subt
   let lastSection: string | undefined
 
   return (
-    <div className="ds-root" data-role={role}>
+    <div className="ds-root" data-role={role} style={accentColor ? ({ '--p': accentColor } as CSSProperties) : undefined}>
       <div className="shell">
         <aside className="sb">
           <div className="sb-logo-wrap">
-            <div className="sb-logo-img">{logo}</div>
-            <div className="sb-logo-name">{logo === 'B' ? 'Business AI' : logo}</div>
+            <div className="sb-logo-img">
+              {brand?.logo_url ? <img src={brand.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : logo}
+            </div>
+            <div className="sb-logo-name">{brandName ?? (logo === 'B' ? 'Business AI' : logo)}</div>
           </div>
           <div className="sb-role">{roleLabel}</div>
           {visibleItems.map((item) => {

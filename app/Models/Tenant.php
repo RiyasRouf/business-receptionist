@@ -29,6 +29,7 @@ class Tenant extends Model
         'brand_name',
         'brand_color',
         'brand_tagline',
+        'brand_logo_path',
     ];
 
     protected function casts(): array

@@ -3,9 +3,10 @@ import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type ApiSuccess } from '@/lib/api'
 import { Shell } from '@/components/Shell'
+import { LogoUploader } from '@/components/LogoUploader'
 import { BUSINESS_NAV } from '@/lib/nav'
 
-interface Brand { tenant_id: string; brand_name: string | null; brand_color: string | null; brand_tagline: string | null }
+interface Brand { tenant_id: string; brand_name: string | null; brand_color: string | null; brand_tagline: string | null; logo_url: string | null }
 
 async function fetchBrand(): Promise<Brand> {
   return (await api.get<ApiSuccess<Brand>>('/branding')).data.data
@@ -40,6 +41,7 @@ export function BusinessAdminBranding() {
       <div className="card">
         <div className="ct">Your Brand Settings</div>
         <div className="cs">Shown in sidebar, staff login screen and emails</div>
+        <LogoUploader logoUrl={data?.logo_url ?? null} uploadUrl="/branding/logo" deleteUrl="/branding/logo" queryKey={['branding']} />
         <div className="fg"><label className="fl">Display Name</label><input value={form.brand_name} onChange={(e) => setForm((f) => ({ ...f, brand_name: e.target.value }))} placeholder="Your AI Receptionist" /></div>
         <div className="fg"><label className="fl">Primary Colour</label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

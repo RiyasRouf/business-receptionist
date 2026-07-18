@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import axios, { isAxiosError } from 'axios'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { authStore, type AuthUser } from '@/lib/auth-store'
 import type { ApiError, ApiSuccess } from '@/lib/api'
 import '@/design-system.css'
@@ -15,9 +16,16 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>
 
+interface PlatformBrand { name: string; color: string; tagline: string; logo_url: string | null }
+
+async function fetchPlatformBrand(): Promise<PlatformBrand> {
+  return (await axios.get<ApiSuccess<PlatformBrand>>('/api/v1/public/branding')).data.data
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const [serverError, setServerError] = useState<string | null>(null)
+  const { data: brand } = useQuery({ queryKey: ['public', 'branding'], queryFn: fetchPlatformBrand })
 
   const {
     register,
@@ -48,11 +56,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="ds-root" data-role="platform">
+    <div className="ds-root" data-role="platform" style={brand?.color ? ({ '--p': brand.color } as CSSProperties) : undefined}>
       <div className="auth-wrap">
         <div className="auth-card">
-          <div className="auth-logo">Business AI ✦</div>
-          <div className="auth-tag">AI Business Receptionist Platform</div>
+          <div className="auth-logo">
+            {brand?.logo_url ? <img src={brand.logo_url} alt="" style={{ height: 32, verticalAlign: 'middle', marginRight: 8 }} /> : null}
+            {brand?.name ?? 'Business AI ✦'}
+          </div>
+          <div className="auth-tag">{brand?.tagline ?? 'AI Business Receptionist Platform'}</div>
           <div className="auth-title">Sign in</div>
           <div className="auth-sub">Enter your credentials to continue</div>
           <form onSubmit={handleSubmit(onSubmit)} noValidate>

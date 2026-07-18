@@ -201,6 +201,11 @@ jobs:
             # Sprint 6 UAT seed data — idempotent (firstOrCreate), staging only
             php artisan db:seed --force
 
+            # public/ ships fresh from git every release — the symlink to
+            # the shared storage/app/public dir (branding logo uploads) must
+            # be recreated each deploy, --force replaces any stale link.
+            php artisan storage:link --force
+
             # Cache config/routes
             php artisan config:cache
             php artisan route:cache

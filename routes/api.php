@@ -37,6 +37,10 @@ Route::prefix('v1')->group(function () {
         ->middleware('signed')
         ->name('transcripts.download');
 
+    // Unauthenticated — the login page has no tenant/session yet and
+    // only needs the platform-wide name/color/tagline/logo to render.
+    Route::get('/public/branding', [BrandingController::class, 'platformShow']);
+
     Route::middleware('jwt.auth')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
@@ -103,6 +107,8 @@ Route::prefix('v1')->group(function () {
                 Route::put('/integrations/whatsapp', [TenantIntegrationController::class, 'updateWhatsapp']);
                 Route::get('/branding', [BrandingController::class, 'tenantShow']);
                 Route::put('/branding', [BrandingController::class, 'tenantUpdate']);
+                Route::post('/branding/logo', [BrandingController::class, 'tenantUploadLogo']);
+                Route::delete('/branding/logo', [BrandingController::class, 'tenantDeleteLogo']);
             });
 
         // Platform-wide — platform_admin only. No tenant.resolve: a
@@ -134,8 +140,12 @@ Route::prefix('v1')->group(function () {
 
             Route::get('/admin/branding', [BrandingController::class, 'platformShow']);
             Route::put('/admin/branding', [BrandingController::class, 'platformUpdate']);
+            Route::post('/admin/branding/logo', [BrandingController::class, 'platformUploadLogo']);
+            Route::delete('/admin/branding/logo', [BrandingController::class, 'platformDeleteLogo']);
             Route::get('/admin/tenants/{tenantId}/branding', [BrandingController::class, 'tenantShow']);
             Route::put('/admin/tenants/{tenantId}/branding', [BrandingController::class, 'tenantUpdate']);
+            Route::post('/admin/tenants/{tenantId}/branding/logo', [BrandingController::class, 'tenantUploadLogo']);
+            Route::delete('/admin/tenants/{tenantId}/branding/logo', [BrandingController::class, 'tenantDeleteLogo']);
 
             Route::get('/admin/health', [HealthController::class, 'platform']);
             Route::get('/admin/audit-logs', [AuditLogController::class, 'index']);

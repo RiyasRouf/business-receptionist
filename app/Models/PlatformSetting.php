@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PlatformSetting extends Model
 {
-    protected $fillable = ['name', 'color', 'tagline'];
+    protected $fillable = ['name', 'color', 'tagline', 'logo_path'];
 
     public static function current(): self
     {
