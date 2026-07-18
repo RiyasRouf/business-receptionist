@@ -4,6 +4,7 @@ namespace App\Modules\LeadCapture\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Lead;
+use App\Models\Session;
 use App\Models\Summary;
 use App\Models\Transcript;
 use App\Modules\CorePlatform\Http\ApiResponse;
@@ -52,19 +53,50 @@ class LeadController
             return $this->error('lead_not_found', 'Lead not found.', 404);
         }
 
+        $session = Session::find($lead->session_id);
         $transcript = Transcript::where('session_id', $lead->session_id)->first();
         $summary = Summary::where('session_id', $lead->session_id)->first();
+        $followedUp = in_array($lead->status, ['contacted', 'enrolled', 'closed'], true);
 
         return $this->success([
             'lead_id' => $lead->lead_id,
             'session_id' => $lead->session_id,
             'status' => $lead->status,
             'fields' => $lead->fields_json,
+            'staff_notes' => $lead->staff_notes,
             'transcript' => $transcript?->content,
             'summary' => $summary?->content,
             'action_items' => $summary?->action_items_json,
             'created_at' => $lead->created_at?->toIso8601String(),
+            // Real events from actual data, not simulated — each entry
+            // only appears once its underlying row/state actually exists.
+            'timeline' => array_values(array_filter([
+                $session?->started_at ? ['label' => 'Call received', 'at' => $session->started_at->toIso8601String(), 'done' => true] : null,
+                ['label' => 'Lead captured', 'at' => $lead->created_at?->toIso8601String(), 'done' => true],
+                $transcript ? ['label' => 'Transcript generated', 'at' => $transcript->created_at?->toIso8601String(), 'done' => true] : ['label' => 'Transcript generated', 'at' => null, 'done' => false],
+                $summary ? ['label' => 'Summary written', 'at' => $summary->created_at?->toIso8601String(), 'done' => true] : ['label' => 'Summary written', 'at' => null, 'done' => false],
+                $followedUp
+                    ? ['label' => 'Followed up', 'at' => $lead->updated_at?->toIso8601String(), 'done' => true]
+                    : ['label' => 'Awaiting follow-up', 'at' => null, 'done' => false],
+            ])),
         ]);
+    }
+
+    public function updateNotes(Request $request, string $leadId)
+    {
+        $tenantId = $request->attributes->get('auth_tenant_id');
+        $validated = $request->validate(['notes' => ['required', 'string', 'max:5000']]);
+
+        $lead = Lead::where('tenant_id', $tenantId)->where('lead_id', $leadId)->first();
+
+        if ($lead === null) {
+            return $this->error('lead_not_found', 'Lead not found.', 404);
+        }
+
+        $lead->staff_notes = $validated['notes'];
+        $lead->save();
+
+        return $this->success(['lead_id' => $lead->lead_id, 'staff_notes' => $lead->staff_notes]);
     }
 
     public function updateStatus(Request $request, string $leadId)

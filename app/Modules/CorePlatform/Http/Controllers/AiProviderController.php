@@ -64,6 +64,34 @@ class AiProviderController
         return $this->success($provider);
     }
 
+    /**
+     * Known published per-1M-token rates (USD) for recognised model
+     * names. No provider's models-list API returns pricing, so this is
+     * the only source — deliberately not a form field, per the
+     * "not a custom input" requirement. Unknown model names cost $0
+     * (visible in the cost table as such — an honest "we don't know
+     * this one's rate yet" rather than a guessed number).
+     */
+    private const KNOWN_RATES = [
+        'gpt-4o-mini' => [0.15, 0.60],
+        'gpt-4o' => [2.50, 10.00],
+        'gpt-4-turbo' => [10.00, 30.00],
+        'gpt-3.5-turbo' => [0.50, 1.50],
+        'claude-sonnet-4-6' => [3.00, 15.00],
+        'claude-haiku-4-5' => [0.80, 4.00],
+        'claude-opus-4-8' => [15.00, 75.00],
+        'gemini-2.5-flash' => [0.075, 0.30],
+        'gemini-2.5-pro' => [1.25, 5.00],
+        'gemini-1.5-flash' => [0.075, 0.30],
+        'gemini-1.5-pro' => [1.25, 5.00],
+    ];
+
+    /**
+     * Adds a model by name only — cost is looked up from KNOWN_RATES,
+     * never typed in. Matches the "Fetch All Available Models" picker
+     * on the frontend: click a fetched/curated model name, it's added
+     * with its real rate (or $0 if the rate isn't known yet).
+     */
     public function storeModel(Request $request, string $providerId): JsonResponse
     {
         $provider = AiProvider::find($providerId);
@@ -74,13 +102,15 @@ class AiProviderController
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'input_cost_per_1m' => ['required', 'numeric', 'min:0'],
-            'output_cost_per_1m' => ['required', 'numeric', 'min:0'],
         ]);
+
+        [$inputRate, $outputRate] = self::KNOWN_RATES[$validated['name']] ?? [0, 0];
 
         $model = AiProviderModel::create([
             'provider_id' => $provider->provider_id,
-            ...$validated,
+            'name' => $validated['name'],
+            'input_cost_per_1m' => $inputRate,
+            'output_cost_per_1m' => $outputRate,
         ]);
 
         return $this->success($model, status: 201);
@@ -129,11 +159,16 @@ class AiProviderController
             Log::warning('ai_provider.fetch_models_failed', ['provider_id' => $providerId, 'error' => $e->getMessage()]);
         }
 
-        if ($live !== null && $live !== []) {
-            return $this->success(['source' => 'live', 'models' => $live]);
-        }
+        $names_list = $live !== null && $live !== [] ? $live : $this->fallbackModels($names);
+        $source = $live !== null && $live !== [] ? 'live' : 'fallback';
 
-        return $this->success(['source' => 'fallback', 'models' => $this->fallbackModels($names)]);
+        $models = collect($names_list)->map(fn ($name) => [
+            'name' => $name,
+            'input_cost_per_1m' => self::KNOWN_RATES[$name][0] ?? null,
+            'output_cost_per_1m' => self::KNOWN_RATES[$name][1] ?? null,
+        ])->values()->all();
+
+        return $this->success(['source' => $source, 'models' => $models]);
     }
 
     /** @return string[] */

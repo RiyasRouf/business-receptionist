@@ -75,6 +75,7 @@ Route::prefix('v1')->group(function () {
                     Route::get('/leads', [LeadController::class, 'index']);
                     Route::get('/leads/{leadId}', [LeadController::class, 'show']);
                     Route::patch('/leads/{leadId}/status', [LeadController::class, 'updateStatus']);
+                    Route::patch('/leads/{leadId}/notes', [LeadController::class, 'updateNotes']);
                 });
 
                 Route::middleware('permission:team')->group(function () {

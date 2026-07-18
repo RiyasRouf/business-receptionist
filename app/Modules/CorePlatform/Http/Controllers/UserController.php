@@ -88,15 +88,26 @@ class UserController
     }
 
     /**
-     * Platform-wide — platform_admin lists all tenant_admin users
-     * across every tenant. Matches Platform Admin "Users" screen.
+     * Platform-wide — platform_admin lists users, filtered by role
+     * (defaults to platform_admin — the accounts with no other screen
+     * to view them on, rather than dumping every tenant's users by
+     * default) and optionally by tenant. Matches Platform Admin
+     * "Users" screen.
      */
     public function indexAdmins(Request $request): JsonResponse
     {
-        $admins = User::where('role', User::ROLE_TENANT_ADMIN)
+        $role = $request->query('role', User::ROLE_PLATFORM_ADMIN);
+        $tenantId = $request->query('tenant_id');
+
+        $query = User::where('role', $role)
             ->with('tenant:tenant_id,name,industry')
-            ->orderByDesc('created_at')
-            ->get(['user_id', 'tenant_id', 'name', 'email', 'job_title', 'locked_until', 'created_at']);
+            ->orderByDesc('created_at');
+
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        $admins = $query->get(['user_id', 'tenant_id', 'name', 'email', 'job_title', 'locked_until', 'created_at']);
 
         return $this->success($admins);
     }

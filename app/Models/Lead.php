@@ -11,8 +11,6 @@ class Lead extends Model
 {
     use HasUuids, SoftDeletes;
 
-    public $timestamps = false;
-
     protected $primaryKey = 'lead_id';
 
     public $incrementing = false;
@@ -25,12 +23,14 @@ class Lead extends Model
         'status',
         'fields_json',
         'phone_hash',
+        'staff_notes',
     ];
 
     protected function casts(): array
     {
         return [
             'created_at' => 'datetime',
+            'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
     }
