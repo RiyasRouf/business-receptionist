@@ -7,9 +7,11 @@ import { LoginPage } from '@/pages/LoginPage'
 import { PlatformAdminDashboard } from '@/pages/PlatformAdminDashboard'
 import { PlatformAdminTenants } from '@/pages/PlatformAdminTenants'
 import { PlatformAdminUsers } from '@/pages/PlatformAdminUsers'
+import { PlatformAdminAIProviders } from '@/pages/PlatformAdminAIProviders'
 import { BusinessAdminDashboard } from '@/pages/BusinessAdminDashboard'
 import { BusinessAdminTeam } from '@/pages/BusinessAdminTeam'
 import { BusinessAdminKnowledgeBase } from '@/pages/BusinessAdminKnowledgeBase'
+import { BusinessAdminRoles } from '@/pages/BusinessAdminRoles'
 import { StaffLeads } from '@/pages/StaffLeads'
 import { LeadDetail } from '@/pages/LeadDetail'
 
@@ -51,12 +53,14 @@ function AppRoutes() {
         <Route path="/admin" element={<PlatformAdminDashboard />} />
         <Route path="/admin/tenants" element={<PlatformAdminTenants />} />
         <Route path="/admin/users" element={<PlatformAdminUsers />} />
+        <Route path="/admin/ai-providers" element={<PlatformAdminAIProviders />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['tenant_admin']} />}>
         <Route path="/school" element={<BusinessAdminDashboard />} />
         <Route path="/school/team" element={<BusinessAdminTeam />} />
         <Route path="/school/kb" element={<BusinessAdminKnowledgeBase />} />
+        <Route path="/school/roles" element={<BusinessAdminRoles />} />
       </Route>
 
       {/* Leads: staff reviews them (F-14/F-15); tenant_admin can also

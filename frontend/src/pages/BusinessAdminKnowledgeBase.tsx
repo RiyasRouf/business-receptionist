@@ -10,6 +10,7 @@ const NAV: NavItem[] = [
   { label: 'Team', to: '/school/team' },
   { label: 'Knowledge Base', to: '/school/kb' },
   { label: 'Leads', to: '/leads' },
+  { label: 'Roles & Permissions', to: '/school/roles', section: 'Configuration' },
 ]
 
 interface KbDocument {

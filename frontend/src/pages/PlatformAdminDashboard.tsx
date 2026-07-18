@@ -7,6 +7,7 @@ const NAV: NavItem[] = [
   { label: 'Dashboard', to: '/admin' },
   { label: 'Tenants', to: '/admin/tenants' },
   { label: 'Users', to: '/admin/users' },
+  { label: 'AI Providers', to: '/admin/ai-providers', section: 'Configuration' },
 ]
 
 interface PlatformStats {
