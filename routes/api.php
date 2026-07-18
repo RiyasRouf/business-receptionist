@@ -89,7 +89,9 @@ Route::prefix('v1')->group(function () {
 
             Route::get('/admin/ai-providers', [AiProviderController::class, 'index']);
             Route::post('/admin/ai-providers', [AiProviderController::class, 'store']);
+            Route::put('/admin/ai-providers/{providerId}', [AiProviderController::class, 'update']);
             Route::post('/admin/ai-providers/{providerId}/models', [AiProviderController::class, 'storeModel']);
+            Route::get('/admin/ai-providers/{providerId}/available-models', [AiProviderController::class, 'fetchModels']);
             Route::put('/admin/tenants/{tenantId}/ai-assignment', [AiProviderController::class, 'assignTenant']);
             Route::get('/admin/usage-cost', [AiProviderController::class, 'costs']);
         });

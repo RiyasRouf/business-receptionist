@@ -48,12 +48,16 @@ class UserController
     {
         $tenantId = $request->attributes->get('auth_tenant_id');
 
+        // Only 2 system roles exist (platform_admin, tenant_admin) — a
+        // "staff" account is meaningless without a business_admin-defined
+        // custom role attached (Roles & Permissions screen), so it's
+        // required here, not optional.
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', 'string', 'in:staff,tenant_admin'],
             'job_title' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'custom_role_id' => ['sometimes', 'nullable', 'uuid', 'exists:tenant_roles,role_id'],
+            'custom_role_id' => ['required_if:role,staff', 'nullable', 'uuid', 'exists:tenant_roles,role_id'],
         ]);
 
         $tempPassword = Str::password(16);

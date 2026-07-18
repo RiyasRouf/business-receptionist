@@ -37,14 +37,23 @@ class DatabaseSeeder extends Seeder
         );
 
         User::firstOrCreate(
-            ['email' => 'school-admin@aiwa.test'],
+            ['email' => 'business-admin@aiwa.test'],
             [
-                'name' => 'Demo School Admin',
+                'name' => 'Demo Business Admin',
                 'password' => Hash::make('password'),
                 'role' => User::ROLE_TENANT_ADMIN,
                 'tenant_id' => $tenant->tenant_id,
                 'email_verified_at' => now(),
             ]
+        );
+
+        // Only 2 system roles exist (platform_admin, tenant_admin) — a
+        // "staff" login only means anything once the business_admin has
+        // created a custom role for it (Roles & Permissions screen).
+        // Seeding a default "Staff" custom role so the demo account works.
+        $staffRole = \App\Models\TenantRole::firstOrCreate(
+            ['tenant_id' => $tenant->tenant_id, 'name' => 'Staff'],
+            ['permissions_json' => ['leads', 'transcripts']]
         );
 
         User::firstOrCreate(
@@ -54,6 +63,7 @@ class DatabaseSeeder extends Seeder
                 'password' => Hash::make('password'),
                 'role' => User::ROLE_STAFF,
                 'tenant_id' => $tenant->tenant_id,
+                'custom_role_id' => $staffRole->role_id,
                 'email_verified_at' => now(),
             ]
         );
