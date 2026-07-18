@@ -6,11 +6,11 @@ import { api, type ApiError, type ApiSuccess } from '@/lib/api'
 import { Shell, type NavItem } from '@/components/Shell'
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard', to: '/school' },
-  { label: 'Team', to: '/school/team' },
-  { label: 'Knowledge Base', to: '/school/kb' },
+  { label: 'Dashboard', to: '/business' },
+  { label: 'Team', to: '/business/team' },
+  { label: 'Knowledge Base', to: '/business/kb' },
   { label: 'Leads', to: '/leads' },
-  { label: 'Roles & Permissions', to: '/school/roles', section: 'Configuration' },
+  { label: 'Roles & Permissions', to: '/business/roles', section: 'Configuration' },
 ]
 
 interface KbDocument {

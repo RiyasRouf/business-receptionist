@@ -21,7 +21,7 @@ const queryClient = new QueryClient({
 
 function homeFor(role: string): string {
   if (role === 'platform_admin') return '/admin'
-  if (role === 'tenant_admin') return '/school'
+  if (role === 'tenant_admin') return '/business'
   return '/leads'
 }
 
@@ -57,10 +57,10 @@ function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['tenant_admin']} />}>
-        <Route path="/school" element={<BusinessAdminDashboard />} />
-        <Route path="/school/team" element={<BusinessAdminTeam />} />
-        <Route path="/school/kb" element={<BusinessAdminKnowledgeBase />} />
-        <Route path="/school/roles" element={<BusinessAdminRoles />} />
+        <Route path="/business" element={<BusinessAdminDashboard />} />
+        <Route path="/business/team" element={<BusinessAdminTeam />} />
+        <Route path="/business/kb" element={<BusinessAdminKnowledgeBase />} />
+        <Route path="/business/roles" element={<BusinessAdminRoles />} />
       </Route>
 
       {/* Leads: staff reviews them (F-14/F-15); tenant_admin can also

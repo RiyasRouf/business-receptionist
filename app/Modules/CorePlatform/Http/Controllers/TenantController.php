@@ -24,7 +24,7 @@ class TenantController
 
     public function index(Request $request): JsonResponse
     {
-        $tenants = Tenant::orderByDesc('created_at')->paginate(20);
+        $tenants = Tenant::with('aiModel.provider')->orderByDesc('created_at')->paginate(20);
 
         return $this->success(
             $tenants->items(),

@@ -4,11 +4,11 @@ import { api, type ApiSuccess } from '@/lib/api'
 import { Shell, type NavItem } from '@/components/Shell'
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard', to: '/school' },
-  { label: 'Team', to: '/school/team' },
-  { label: 'Knowledge Base', to: '/school/kb' },
+  { label: 'Dashboard', to: '/business' },
+  { label: 'Team', to: '/business/team' },
+  { label: 'Knowledge Base', to: '/business/kb' },
   { label: 'Leads', to: '/leads' },
-  { label: 'Roles & Permissions', to: '/school/roles', section: 'Configuration' },
+  { label: 'Roles & Permissions', to: '/business/roles', section: 'Configuration' },
 ]
 
 interface TenantStats {
@@ -41,7 +41,7 @@ export function BusinessAdminDashboard() {
   return (
     <Shell role="business" logo="B" roleLabel="Business Admin" navItems={NAV} activePath={pathname}
       title="Overview" subtitle="This month"
-      topbarActions={<button className="btn bp" onClick={() => navigate('/school/team')}>+ Team Member</button>}>
+      topbarActions={<button className="btn bp" onClick={() => navigate('/business/team')}>+ Team Member</button>}>
 
       <div className="sg">
         <div className="sc gr"><div className="si2 gr">📞</div><div className="sv">{stats?.minutes_used ?? '—'}</div><div className="sl">Minutes Used</div></div>
