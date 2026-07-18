@@ -9,8 +9,15 @@ export interface AuthUser {
   user_id: string
   name: string
   email: string
-  role: 'platform_admin' | 'tenant_admin' | 'staff'
+  // Only 2 system roles exist. Every tenant user is tenant_admin here —
+  // custom_role_id/permissions (below) is what actually differentiates
+  // access within a tenant, not this field.
+  role: 'platform_admin' | 'tenant_admin'
   tenant_id: string | null
+  custom_role_id: string | null
+  // null = unrestricted admin. [] = a custom role with zero permissions
+  // granted (a real, distinct state from "no role assigned yet").
+  permissions: string[] | null
 }
 
 interface AuthState {

@@ -42,7 +42,7 @@ export function StaffLeads() {
   }
 
   return (
-    <Shell role="business" logo="B" roleLabel="Staff" navItems={NAV} activePath={pathname}
+    <Shell role="business" logo="B" roleLabel="Team Member" navItems={NAV} activePath={pathname}
       title="Leads" subtitle={`${leads?.length ?? 0} total`}
       topbarActions={
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ width: 160 }}>

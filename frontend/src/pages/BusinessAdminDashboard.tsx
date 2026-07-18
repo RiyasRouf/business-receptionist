@@ -5,10 +5,10 @@ import { Shell, type NavItem } from '@/components/Shell'
 
 const NAV: NavItem[] = [
   { label: 'Dashboard', to: '/business' },
-  { label: 'Team', to: '/business/team' },
-  { label: 'Knowledge Base', to: '/business/kb' },
-  { label: 'Leads', to: '/leads' },
-  { label: 'Roles & Permissions', to: '/business/roles', section: 'Configuration' },
+  { label: 'Team', to: '/business/team', permission: 'team' },
+  { label: 'Knowledge Base', to: '/business/kb', permission: 'knowledge_base' },
+  { label: 'Leads', to: '/leads', permission: 'leads' },
+  { label: 'Roles & Permissions', to: '/business/roles', section: 'Configuration', permission: 'team' },
 ]
 
 interface TenantStats {

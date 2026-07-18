@@ -19,10 +19,18 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 })
 
-function homeFor(role: string): string {
-  if (role === 'platform_admin') return '/admin'
-  if (role === 'tenant_admin') return '/business'
-  return '/leads'
+function homeFor(user: NonNullable<ReturnType<typeof useAuth>['user']>): string {
+  if (user.role === 'platform_admin') return '/admin'
+
+  // Unrestricted admin (permissions === null) or anyone with no more
+  // specific permission lands on the dashboard — it has no permission
+  // requirement of its own. A permission-limited member with 'leads'
+  // (the common case) goes straight to their actual work instead.
+  if (user.permissions !== null && user.permissions.includes('leads') && !user.permissions.includes('team')) {
+    return '/leads'
+  }
+
+  return '/business'
 }
 
 function RootRedirect() {
@@ -30,7 +38,7 @@ function RootRedirect() {
 
   if (!user) return <Navigate to="/login" replace />
 
-  return <Navigate to={homeFor(user.role)} replace />
+  return <Navigate to={homeFor(user)} replace />
 }
 
 function AppRoutes() {
@@ -56,16 +64,21 @@ function AppRoutes() {
         <Route path="/admin/ai-providers" element={<PlatformAdminAIProviders />} />
       </Route>
 
+      {/* Only 2 system roles exist — everyone here is tenant_admin.
+          requiredPermission gates the permission-limited (custom
+          custom_role_id set); unrestricted admins (permissions===null)
+          always pass. Dashboard has no permission of its own. */}
       <Route element={<ProtectedRoute allowedRoles={['tenant_admin']} />}>
         <Route path="/business" element={<BusinessAdminDashboard />} />
+      </Route>
+      <Route element={<ProtectedRoute allowedRoles={['tenant_admin']} requiredPermission="team" />}>
         <Route path="/business/team" element={<BusinessAdminTeam />} />
-        <Route path="/business/kb" element={<BusinessAdminKnowledgeBase />} />
         <Route path="/business/roles" element={<BusinessAdminRoles />} />
       </Route>
-
-      {/* Leads: staff reviews them (F-14/F-15); tenant_admin can also
-          drill in from their dashboard's lead pipeline. */}
-      <Route element={<ProtectedRoute allowedRoles={['staff', 'tenant_admin']} />}>
+      <Route element={<ProtectedRoute allowedRoles={['tenant_admin']} requiredPermission="knowledge_base" />}>
+        <Route path="/business/kb" element={<BusinessAdminKnowledgeBase />} />
+      </Route>
+      <Route element={<ProtectedRoute allowedRoles={['tenant_admin']} requiredPermission="leads" />}>
         <Route path="/leads" element={<StaffLeads />} />
         <Route path="/leads/:leadId" element={<LeadDetail />} />
       </Route>

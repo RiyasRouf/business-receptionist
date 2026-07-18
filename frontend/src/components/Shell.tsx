@@ -7,6 +7,10 @@ export interface NavItem {
   label: string
   to: string
   section?: string
+  // Omit for items any tenant_admin can see (e.g. Dashboard). Set to
+  // gate the item for permission-limited members — unrestricted
+  // admins (permissions === null) always see everything regardless.
+  permission?: string
 }
 
 interface ShellProps {
@@ -32,6 +36,10 @@ export function Shell({ role, logo, roleLabel, navItems, activePath, title, subt
     .join('')
     .toUpperCase()
 
+  const visibleItems = navItems.filter(
+    (item) => !item.permission || user?.permissions === null || user?.permissions?.includes(item.permission),
+  )
+
   let lastSection: string | undefined
 
   return (
@@ -43,7 +51,7 @@ export function Shell({ role, logo, roleLabel, navItems, activePath, title, subt
             <div className="sb-logo-name">{logo === 'B' ? 'Business AI' : logo}</div>
           </div>
           <div className="sb-role">{roleLabel}</div>
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const showSection = item.section && item.section !== lastSection
             lastSection = item.section
 
