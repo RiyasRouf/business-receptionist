@@ -25,6 +25,7 @@ class Tenant extends Model
         'plan_id',
         'status',
         'limits_json',
+        'ai_provider_model_id',
     ];
 
     protected function casts(): array
@@ -38,5 +39,10 @@ class Tenant extends Model
     public function users()
     {
         return $this->hasMany(User::class, 'tenant_id', 'tenant_id');
+    }
+
+    public function aiModel()
+    {
+        return $this->belongsTo(AiProviderModel::class, 'ai_provider_model_id', 'model_id');
     }
 }

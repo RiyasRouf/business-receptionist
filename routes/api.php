@@ -1,10 +1,12 @@
 <?php
 
 use App\Models\User;
+use App\Modules\CorePlatform\Http\Controllers\AiProviderController;
 use App\Modules\CorePlatform\Http\Controllers\AuthController;
 use App\Modules\CorePlatform\Http\Controllers\DashboardController;
 use App\Modules\CorePlatform\Http\Controllers\ReadinessController;
 use App\Modules\CorePlatform\Http\Controllers\TenantController;
+use App\Modules\CorePlatform\Http\Controllers\TenantRoleController;
 use App\Modules\CorePlatform\Http\Controllers\UserController;
 use App\Modules\KnowledgeBase\Http\Controllers\KnowledgeBaseController;
 use App\Modules\LeadCapture\Http\Controllers\LeadController;
@@ -67,6 +69,11 @@ Route::prefix('v1')->group(function () {
                 Route::get('/team', [UserController::class, 'indexTeam']);
                 Route::post('/team', [UserController::class, 'storeTeam']);
                 Route::get('/dashboard', [DashboardController::class, 'tenant']);
+
+                Route::get('/roles', [TenantRoleController::class, 'index']);
+                Route::post('/roles', [TenantRoleController::class, 'store']);
+                Route::put('/roles/{roleId}', [TenantRoleController::class, 'update']);
+                Route::delete('/roles/{roleId}', [TenantRoleController::class, 'destroy']);
             });
 
         // Platform-wide — platform_admin only. No tenant.resolve: a
@@ -79,6 +86,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/admin/users', [UserController::class, 'indexAdmins']);
             Route::post('/admin/users', [UserController::class, 'storeAdmin']);
             Route::get('/admin/dashboard', [DashboardController::class, 'platform']);
+
+            Route::get('/admin/ai-providers', [AiProviderController::class, 'index']);
+            Route::post('/admin/ai-providers', [AiProviderController::class, 'store']);
+            Route::post('/admin/ai-providers/{providerId}/models', [AiProviderController::class, 'storeModel']);
+            Route::put('/admin/tenants/{tenantId}/ai-assignment', [AiProviderController::class, 'assignTenant']);
+            Route::get('/admin/usage-cost', [AiProviderController::class, 'costs']);
         });
     });
 });

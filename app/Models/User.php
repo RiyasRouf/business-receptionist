@@ -28,6 +28,7 @@ class User extends Authenticatable
         'password',
         'role',
         'job_title',
+        'custom_role_id',
     ];
 
     protected $hidden = [
@@ -48,6 +49,11 @@ class User extends Authenticatable
     public function tenant()
     {
         return $this->belongsTo(Tenant::class, 'tenant_id', 'tenant_id');
+    }
+
+    public function customRole()
+    {
+        return $this->belongsTo(TenantRole::class, 'custom_role_id', 'role_id');
     }
 
     public function isLocked(): bool

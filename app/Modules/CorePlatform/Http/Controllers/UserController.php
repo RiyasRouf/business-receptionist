@@ -33,8 +33,9 @@ class UserController
         $tenantId = $request->attributes->get('auth_tenant_id');
 
         $team = User::where('tenant_id', $tenantId)
+            ->with('customRole:role_id,name')
             ->orderByDesc('created_at')
-            ->get(['user_id', 'name', 'email', 'role', 'job_title', 'locked_until', 'created_at']);
+            ->get(['user_id', 'name', 'email', 'role', 'job_title', 'custom_role_id', 'locked_until', 'created_at']);
 
         return $this->success($team);
     }
@@ -52,6 +53,7 @@ class UserController
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', 'string', 'in:staff,tenant_admin'],
             'job_title' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'custom_role_id' => ['sometimes', 'nullable', 'uuid', 'exists:tenant_roles,role_id'],
         ]);
 
         $tempPassword = Str::password(16);
@@ -63,6 +65,7 @@ class UserController
             'password' => Hash::make($tempPassword),
             'role' => $validated['role'],
             'job_title' => $validated['job_title'] ?? null,
+            'custom_role_id' => $validated['custom_role_id'] ?? null,
             'email_verified_at' => now(),
         ]);
 
