@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 /**
  * Team management — was a full gap before Milestone 6 UI/UX: no
@@ -25,8 +26,8 @@ class UserController
     use ApiResponse;
 
     /**
-     * Tenant-scoped — tenant_admin lists their own tenant's team
-     * (tenant_admin + staff). Matches Business Admin "Team" screen.
+     * Tenant-scoped — tenant_admin lists their own tenant's team.
+     * Matches Business Admin "Team" screen.
      */
     public function indexTeam(Request $request): JsonResponse
     {
@@ -41,23 +42,30 @@ class UserController
     }
 
     /**
-     * Tenant-scoped — tenant_admin creates a staff (or additional
-     * tenant_admin) user within their own tenant.
+     * Tenant-scoped — a business_admin (custom_role_id = null on their
+     * own account) adds a team member with a custom role. The system
+     * `role` field is never client-supplied here — it's hardcoded to
+     * tenant_admin, and custom_role_id is required. Only platform_admin
+     * (storeAdmin, below) can create an unrestricted admin
+     * (custom_role_id = null) — business_admin cannot grant that via
+     * this endpoint, by design.
      */
     public function storeTeam(Request $request): JsonResponse
     {
         $tenantId = $request->attributes->get('auth_tenant_id');
 
-        // Only 2 system roles exist (platform_admin, tenant_admin) — a
-        // "staff" account is meaningless without a business_admin-defined
-        // custom role attached (Roles & Permissions screen), so it's
-        // required here, not optional.
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'role' => ['required', 'string', 'in:staff,tenant_admin'],
             'job_title' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'custom_role_id' => ['required_if:role,staff', 'nullable', 'uuid', 'exists:tenant_roles,role_id'],
+            // Scoped to this tenant — otherwise a role_id belonging to a
+            // different tenant would pass validation and, since
+            // EnforcePermission looks the role up by ID alone, silently
+            // grant that other tenant's permission set.
+            'custom_role_id' => [
+                'required', 'uuid',
+                Rule::exists('tenant_roles', 'role_id')->where('tenant_id', $tenantId),
+            ],
         ]);
 
         $tempPassword = Str::password(16);
@@ -67,9 +75,9 @@ class UserController
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($tempPassword),
-            'role' => $validated['role'],
+            'role' => User::ROLE_TENANT_ADMIN,
             'job_title' => $validated['job_title'] ?? null,
-            'custom_role_id' => $validated['custom_role_id'] ?? null,
+            'custom_role_id' => $validated['custom_role_id'],
             'email_verified_at' => now(),
         ]);
 

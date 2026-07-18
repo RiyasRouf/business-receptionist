@@ -11,9 +11,12 @@ class User extends Authenticatable
 {
     use HasFactory, HasUuids, Notifiable;
 
+    // Only 2 system roles. Non-admin tenant members are also
+    // tenant_admin at this level — custom_role_id (null = unrestricted,
+    // set = limited to tenant_roles.permissions_json) is what actually
+    // differentiates access within a tenant. See EnforcePermission.
     public const ROLE_PLATFORM_ADMIN = 'platform_admin';
     public const ROLE_TENANT_ADMIN = 'tenant_admin';
-    public const ROLE_STAFF = 'staff';
 
     protected $primaryKey = 'user_id';
 

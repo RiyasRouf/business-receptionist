@@ -39,41 +39,56 @@ Route::prefix('v1')->group(function () {
         // Role-agnostic — every authenticated user (including
         // platform_admin, who has no tenant_id and would be rejected by
         // tenant.resolve) needs this to bootstrap the app on page load.
-        Route::get('/me', fn (\Illuminate\Http\Request $request) => response()->json([
-            'success' => true,
-            'data' => [
-                'user_id' => $request->attributes->get('auth_user_id'),
-                'tenant_id' => $request->attributes->get('auth_tenant_id'),
-                'role' => $request->attributes->get('auth_role'),
-            ],
-            'trace_id' => app(\App\Modules\CorePlatform\Services\TraceContext::class)->get(),
-        ]));
+        Route::get('/me', function (\Illuminate\Http\Request $request) {
+            $user = User::find($request->attributes->get('auth_user_id'));
 
-        // Tenant-scoped — tenant_admin/staff only.
-        Route::middleware(['tenant.resolve', 'role:'.User::ROLE_TENANT_ADMIN.','.User::ROLE_STAFF])
-            ->group(function () {
-                Route::get('/kb/documents', [KnowledgeBaseController::class, 'index']);
-                Route::post('/kb/documents', [KnowledgeBaseController::class, 'store']);
-                Route::delete('/kb/documents/{documentId}', [KnowledgeBaseController::class, 'destroy']);
-                Route::post('/kb/search', [KnowledgeBaseController::class, 'search']);
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'user_id' => $request->attributes->get('auth_user_id'),
+                    'tenant_id' => $request->attributes->get('auth_tenant_id'),
+                    'role' => $request->attributes->get('auth_role'),
+                    'custom_role_id' => $user?->custom_role_id,
+                    'permissions' => $user?->custom_role_id
+                        ? (\App\Models\TenantRole::find($user->custom_role_id)?->permissions_json ?? [])
+                        : null, // null = unrestricted admin, not "no permissions"
+                ],
+                'trace_id' => app(\App\Modules\CorePlatform\Services\TraceContext::class)->get(),
+            ]);
+        });
 
-                Route::get('/leads', [LeadController::class, 'index']);
-                Route::get('/leads/{leadId}', [LeadController::class, 'show']);
-                Route::patch('/leads/{leadId}/status', [LeadController::class, 'updateStatus']);
-            });
-
-        // Tenant-scoped — tenant_admin only (team/dashboard management,
-        // not staff-level access).
+        // Tenant-scoped — everyone in a tenant is tenant_admin at the
+        // system-role level now (only 2 system roles exist). Which
+        // features they can actually use is gated per-group below by
+        // 'permission:X' — unrestricted for custom_role_id = null,
+        // checked against tenant_roles.permissions_json otherwise.
         Route::middleware(['tenant.resolve', 'role:'.User::ROLE_TENANT_ADMIN])
             ->group(function () {
-                Route::get('/team', [UserController::class, 'indexTeam']);
-                Route::post('/team', [UserController::class, 'storeTeam']);
-                Route::get('/dashboard', [DashboardController::class, 'tenant']);
+                Route::middleware('permission:knowledge_base')->group(function () {
+                    Route::get('/kb/documents', [KnowledgeBaseController::class, 'index']);
+                    Route::post('/kb/documents', [KnowledgeBaseController::class, 'store']);
+                    Route::delete('/kb/documents/{documentId}', [KnowledgeBaseController::class, 'destroy']);
+                    Route::post('/kb/search', [KnowledgeBaseController::class, 'search']);
+                });
 
-                Route::get('/roles', [TenantRoleController::class, 'index']);
-                Route::post('/roles', [TenantRoleController::class, 'store']);
-                Route::put('/roles/{roleId}', [TenantRoleController::class, 'update']);
-                Route::delete('/roles/{roleId}', [TenantRoleController::class, 'destroy']);
+                Route::middleware('permission:leads')->group(function () {
+                    Route::get('/leads', [LeadController::class, 'index']);
+                    Route::get('/leads/{leadId}', [LeadController::class, 'show']);
+                    Route::patch('/leads/{leadId}/status', [LeadController::class, 'updateStatus']);
+                });
+
+                Route::middleware('permission:team')->group(function () {
+                    Route::get('/team', [UserController::class, 'indexTeam']);
+                    Route::post('/team', [UserController::class, 'storeTeam']);
+                    Route::get('/roles', [TenantRoleController::class, 'index']);
+                    Route::post('/roles', [TenantRoleController::class, 'store']);
+                    Route::put('/roles/{roleId}', [TenantRoleController::class, 'update']);
+                    Route::delete('/roles/{roleId}', [TenantRoleController::class, 'destroy']);
+                });
+
+                // Read-only aggregate stats — no dedicated permission,
+                // available to anyone in the tenant.
+                Route::get('/dashboard', [DashboardController::class, 'tenant']);
             });
 
         // Platform-wide — platform_admin only. No tenant.resolve: a

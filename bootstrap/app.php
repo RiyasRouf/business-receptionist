@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\CorePlatform\Http\Middleware\AddTraceId;
+use App\Modules\CorePlatform\Http\Middleware\EnforcePermission;
 use App\Modules\CorePlatform\Http\Middleware\JwtAuthenticate;
 use App\Modules\CorePlatform\Http\Middleware\RequireRole;
 use App\Modules\CorePlatform\Http\Middleware\ResolveTenant;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'jwt.auth' => JwtAuthenticate::class,
             'tenant.resolve' => ResolveTenant::class,
             'role' => RequireRole::class,
+            'permission' => EnforcePermission::class,
             'whatsapp.signature' => VerifyWhatsAppSignature::class,
         ]);
 

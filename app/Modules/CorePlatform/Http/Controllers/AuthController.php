@@ -115,6 +115,12 @@ class AuthController
                 'email' => $user->email,
                 'role' => $user->role,
                 'tenant_id' => $user->tenant_id,
+                'custom_role_id' => $user->custom_role_id,
+                // null = unrestricted admin (not "no permissions") —
+                // frontend must distinguish the two, not treat both as [].
+                'permissions' => $user->custom_role_id
+                    ? ($user->customRole?->permissions_json ?? [])
+                    : null,
             ],
         ])->withCookie($cookie);
     }

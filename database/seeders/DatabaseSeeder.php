@@ -61,7 +61,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Demo Staff',
                 'password' => Hash::make('password'),
-                'role' => User::ROLE_STAFF,
+                'role' => User::ROLE_TENANT_ADMIN,
                 'tenant_id' => $tenant->tenant_id,
                 'custom_role_id' => $staffRole->role_id,
                 'email_verified_at' => now(),
