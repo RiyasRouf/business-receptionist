@@ -2,19 +2,14 @@ import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type ApiSuccess } from '@/lib/api'
-import { Shell, type NavItem } from '@/components/Shell'
-
-const NAV: NavItem[] = [
-  { label: 'Dashboard', to: '/admin' },
-  { label: 'Tenants', to: '/admin/tenants' },
-  { label: 'Users', to: '/admin/users' },
-  { label: 'AI Providers', to: '/admin/ai-providers', section: 'Configuration' },
-]
+import { Shell } from '@/components/Shell'
+import { PLATFORM_NAV } from '@/lib/nav'
 
 interface Model { model_id: string; name: string; input_cost_per_1m: number; output_cost_per_1m: number }
 interface Provider { provider_id: string; name: string; status: string; base_url: string | null; models: Model[] }
 interface Cost { tenant_id: string; tenant_name: string; model: string | null; provider: string | null; tokens: number; turns: number; cost_usd: number }
 interface Tenant { tenant_id: string; name: string | null; slug: string; ai_provider_model_id: string | null; ai_model: (Model & { provider: { name: string } }) | null }
+interface FetchedModel { name: string; input_cost_per_1m: number | null; output_cost_per_1m: number | null }
 
 async function fetchProviders(): Promise<Provider[]> {
   return (await api.get<ApiSuccess<Provider[]>>('/admin/ai-providers')).data.data
@@ -34,9 +29,9 @@ export function PlatformAdminAIProviders() {
   const { data: tenants } = useQuery({ queryKey: ['admin', 'tenants'], queryFn: fetchTenants })
 
   const [providerForm, setProviderForm] = useState({ name: '', api_key: '', base_url: '' })
-  const [modelForms, setModelForms] = useState<Record<string, { name: string; input_cost_per_1m: string; output_cost_per_1m: string }>>({})
-  const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({})
-  const [editingKey, setEditingKey] = useState<Record<string, string>>({})
+  const [availableModels, setAvailableModels] = useState<Record<string, FetchedModel[]>>({})
+  const [editingProvider, setEditingProvider] = useState<Provider | null>(null)
+  const [editForm, setEditForm] = useState({ api_key: '', base_url: '', status: 'active' })
 
   const invalidateProviders = () => queryClient.invalidateQueries({ queryKey: ['admin', 'ai-providers'] })
 
@@ -46,29 +41,24 @@ export function PlatformAdminAIProviders() {
   })
 
   const updateProvider = useMutation({
-    mutationFn: async (providerId: string) => api.put(`/admin/ai-providers/${providerId}`, { api_key: editingKey[providerId] }),
-    onSuccess: (_d, providerId) => { setEditingKey((k) => ({ ...k, [providerId]: '' })); invalidateProviders() },
+    mutationFn: async () => api.put(`/admin/ai-providers/${editingProvider!.provider_id}`, {
+      api_key: editForm.api_key || undefined,
+      base_url: editForm.base_url,
+      status: editForm.status,
+    }),
+    onSuccess: () => { setEditingProvider(null); invalidateProviders() },
   })
 
   const fetchModelsForProvider = useMutation({
     mutationFn: async (providerId: string) =>
-      (await api.get<ApiSuccess<{ source: string; models: string[] }>>(`/admin/ai-providers/${providerId}/available-models`)).data.data,
+      (await api.get<ApiSuccess<{ source: string; models: FetchedModel[] }>>(`/admin/ai-providers/${providerId}/available-models`)).data.data,
     onSuccess: (data, providerId) => setAvailableModels((m) => ({ ...m, [providerId]: data.models })),
   })
 
   const addModel = useMutation({
-    mutationFn: async (providerId: string) => {
-      const f = modelField(providerId)
-      return api.post(`/admin/ai-providers/${providerId}/models`, {
-        name: f.name,
-        input_cost_per_1m: Number(f.input_cost_per_1m) || 0,
-        output_cost_per_1m: Number(f.output_cost_per_1m) || 0,
-      })
-    },
-    onSuccess: (_data, providerId) => {
-      setModelForms((f) => ({ ...f, [providerId]: { name: '', input_cost_per_1m: '', output_cost_per_1m: '' } }))
-      invalidateProviders()
-    },
+    mutationFn: async ({ providerId, name }: { providerId: string; name: string }) =>
+      api.post(`/admin/ai-providers/${providerId}/models`, { name }),
+    onSuccess: () => invalidateProviders(),
   })
 
   const assignTenant = useMutation({
@@ -80,19 +70,18 @@ export function PlatformAdminAIProviders() {
     },
   })
 
-  function modelField(providerId: string) {
-    return modelForms[providerId] ?? { name: '', input_cost_per_1m: '', output_cost_per_1m: '' }
-  }
-  function setModelField(providerId: string, patch: Partial<{ name: string; input_cost_per_1m: string; output_cost_per_1m: string }>) {
-    setModelForms((f) => ({ ...f, [providerId]: { ...modelField(providerId), ...patch } }))
+  function openEdit(p: Provider) {
+    setEditingProvider(p)
+    setEditForm({ api_key: '', base_url: p.base_url ?? '', status: p.status })
   }
 
   const allModels = providers?.flatMap((p) => p.models.map((m) => ({ ...m, providerName: p.name }))) ?? []
   const totalCost = costs?.reduce((sum, c) => sum + c.cost_usd, 0) ?? 0
+  const addedModelNames = (p: Provider) => new Set(p.models.map((m) => m.name))
 
   return (
-    <Shell role="platform" logo="B" roleLabel="Platform Admin" navItems={NAV} activePath={pathname}
-      title="AI Providers" subtitle="Add providers · fetch all their models · assign per tenant · cost tracked per tenant">
+    <Shell role="platform" logo="B" roleLabel="Platform Admin" navItems={PLATFORM_NAV} activePath={pathname}
+      title="AI Providers" subtitle="Add providers · fetch models at their real token rate · assign per tenant">
 
       <div className="sg">
         <div className="sc am"><div className="si2 am">🤖</div><div className="sv">${totalCost.toFixed(2)}</div><div className="sl">Total AI Cost · This Month</div></div>
@@ -106,27 +95,18 @@ export function PlatformAdminAIProviders() {
             <div className="ai-badge"><div className={`bdg ${p.status === 'active' ? 'b-ok' : 'b-gy'}`}>{p.status === 'active' ? 'Active' : 'Inactive'}</div></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
               <div style={{ width: 40, height: 40, borderRadius: 'var(--r2)', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🤖</div>
-              <div><div style={{ fontSize: 14, fontWeight: 700 }}>{p.name}</div><div style={{ fontSize: 11, color: 'var(--t3)' }}>{p.models.length} model(s) configured</div></div>
+              <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700 }}>{p.name}</div><div style={{ fontSize: 11, color: 'var(--t3)' }}>{p.models.length} model(s) configured</div></div>
+              <button className="btn bs bsm" onClick={() => openEdit(p)}>✎ Edit</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, marginBottom: 12, alignItems: 'end' }}>
-              <div className="fg" style={{ margin: 0 }}>
-                <label className="fl">Edit API Key</label>
-                <input type="password" placeholder="Leave blank to keep current"
-                  value={editingKey[p.provider_id] ?? ''}
-                  onChange={(e) => setEditingKey((k) => ({ ...k, [p.provider_id]: e.target.value }))} />
-              </div>
-              <button className="btn bs bsm" disabled={updateProvider.isPending || !editingKey[p.provider_id]} onClick={() => updateProvider.mutate(p.provider_id)}>Save Key</button>
-            </div>
-
-            <div style={{ background: 'var(--bg)', borderRadius: 'var(--r2)', padding: 12, marginBottom: 12 }}>
+            <div style={{ background: 'var(--bg)', borderRadius: 'var(--r2)', padding: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Models</div>
                 <button className="btn bs bsm" disabled={fetchModelsForProvider.isPending} onClick={() => fetchModelsForProvider.mutate(p.provider_id)}>
-                  {fetchModelsForProvider.isPending ? 'Fetching…' : '↻ Fetch All Available Models'}
+                  {fetchModelsForProvider.isPending ? 'Fetching…' : '↻ Fetch Available Models'}
                 </button>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: availableModels[p.provider_id] ? 10 : 0 }}>
                 {p.models.map((m) => (
                   <div className="bdg b-in" key={m.model_id}>{m.name} · ${m.input_cost_per_1m}/1M in · ${m.output_cost_per_1m}/1M out</div>
                 ))}
@@ -134,22 +114,20 @@ export function PlatformAdminAIProviders() {
               </div>
 
               {availableModels[p.provider_id] && (
-                <div style={{ marginBottom: 10 }}>
-                  <div className="fl" style={{ marginBottom: 4 }}>Available (click to fill name below)</div>
+                <div>
+                  <div className="fl" style={{ marginBottom: 4 }}>Click to add at its real token rate</div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {availableModels[p.provider_id].map((name) => (
-                      <button key={name} className="btn bs bsm" onClick={() => setModelField(p.provider_id, { name })}>{name}</button>
-                    ))}
+                    {availableModels[p.provider_id]
+                      .filter((m) => !addedModelNames(p).has(m.name))
+                      .map((m) => (
+                        <button key={m.name} className="btn bs bsm" disabled={addModel.isPending}
+                          onClick={() => addModel.mutate({ providerId: p.provider_id, name: m.name })}>
+                          + {m.name}{m.input_cost_per_1m != null ? ` · $${m.input_cost_per_1m}/$${m.output_cost_per_1m} per 1M` : ' · rate unknown'}
+                        </button>
+                      ))}
                   </div>
                 </div>
               )}
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
-                <div className="fg" style={{ margin: 0 }}><label className="fl">Model Name</label><input placeholder="gpt-4o-mini" value={modelField(p.provider_id).name} onChange={(e) => setModelField(p.provider_id, { name: e.target.value })} /></div>
-                <div className="fg" style={{ margin: 0 }}><label className="fl">Input $/1M</label><input placeholder="0.15" value={modelField(p.provider_id).input_cost_per_1m} onChange={(e) => setModelField(p.provider_id, { input_cost_per_1m: e.target.value })} /></div>
-                <div className="fg" style={{ margin: 0 }}><label className="fl">Output $/1M</label><input placeholder="0.60" value={modelField(p.provider_id).output_cost_per_1m} onChange={(e) => setModelField(p.provider_id, { output_cost_per_1m: e.target.value })} /></div>
-                <button className="btn bs bsm" disabled={addModel.isPending || !modelField(p.provider_id).name} onClick={() => addModel.mutate(p.provider_id)}>+ Add Model</button>
-              </div>
             </div>
           </div>
         ))}
@@ -213,6 +191,41 @@ export function PlatformAdminAIProviders() {
           </tbody>
         </table></div>
       </div>
+
+      {editingProvider && (
+        <div className="modal-overlay" onClick={() => setEditingProvider(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="ct">Edit {editingProvider.name}</div>
+            <div className="cs">Update credentials and connection settings</div>
+
+            <div className="fg"><label className="fl">Provider Name</label><input value={editingProvider.name} disabled /></div>
+            <div className="fg">
+              <label className="fl">API Key</label>
+              <input type="password" placeholder="Leave blank to keep current" value={editForm.api_key}
+                onChange={(e) => setEditForm((f) => ({ ...f, api_key: e.target.value }))} />
+            </div>
+            <div className="fg">
+              <label className="fl">Base URL</label>
+              <input placeholder="https://api.provider.com/v1" value={editForm.base_url}
+                onChange={(e) => setEditForm((f) => ({ ...f, base_url: e.target.value }))} />
+            </div>
+            <div className="fg">
+              <label className="fl">Status</label>
+              <select value={editForm.status} onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button className="btn bp" disabled={updateProvider.isPending} onClick={() => updateProvider.mutate()}>
+                {updateProvider.isPending ? 'Saving…' : 'Save Changes'}
+              </button>
+              <button className="btn bs" onClick={() => setEditingProvider(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </Shell>
   )
 }

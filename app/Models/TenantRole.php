@@ -15,7 +15,7 @@ class TenantRole extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['tenant_id', 'name', 'permissions_json'];
+    protected $fillable = ['tenant_id', 'name', 'description', 'permissions_json'];
 
     protected function casts(): array
     {

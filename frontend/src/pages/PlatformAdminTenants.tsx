@@ -3,14 +3,8 @@ import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { api, type ApiError, type ApiSuccess } from '@/lib/api'
-import { Shell, type NavItem } from '@/components/Shell'
-
-const NAV: NavItem[] = [
-  { label: 'Dashboard', to: '/admin' },
-  { label: 'Tenants', to: '/admin/tenants' },
-  { label: 'Users', to: '/admin/users' },
-  { label: 'AI Providers', to: '/admin/ai-providers', section: 'Configuration' },
-]
+import { Shell } from '@/components/Shell'
+import { PLATFORM_NAV } from '@/lib/nav'
 
 const INDUSTRIES = ['Education', 'Real Estate', 'Healthcare', 'Hospitality', 'Other']
 const COUNTRIES = ['UAE', 'Saudi Arabia', 'Qatar', 'Kuwait']
@@ -83,7 +77,7 @@ export function PlatformAdminTenants() {
   }
 
   return (
-    <Shell role="platform" logo="B" roleLabel="Platform Admin" navItems={NAV} activePath={pathname}
+    <Shell role="platform" logo="B" roleLabel="Platform Admin" navItems={PLATFORM_NAV} activePath={pathname}
       title="Tenants" subtitle={`${tenants?.length ?? 0} total`}>
 
       <div className="card" style={{ marginBottom: 20, border: '2px solid #C7D2FE', background: '#FAFBFF' }}>

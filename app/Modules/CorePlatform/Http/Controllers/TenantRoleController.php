@@ -47,6 +47,7 @@ class TenantRoleController
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:500'],
             'permissions' => ['required', 'array'],
             'permissions.*' => ['string', 'in:'.implode(',', self::AVAILABLE_PERMISSIONS)],
         ]);
@@ -54,6 +55,7 @@ class TenantRoleController
         $role = TenantRole::create([
             'tenant_id' => $tenantId,
             'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
             'permissions_json' => $validated['permissions'],
         ]);
 
@@ -71,6 +73,7 @@ class TenantRoleController
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:500'],
             'permissions' => ['sometimes', 'array'],
             'permissions.*' => ['string', 'in:'.implode(',', self::AVAILABLE_PERMISSIONS)],
         ]);

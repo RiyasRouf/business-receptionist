@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api, type ApiSuccess } from '@/lib/api'
-import { Shell, type NavItem } from '@/components/Shell'
-
-const NAV: NavItem[] = [{ label: 'Leads', to: '/leads' }]
+import { Shell } from '@/components/Shell'
+import { BUSINESS_NAV } from '@/lib/nav'
 
 interface LeadSummary {
   lead_id: string
@@ -42,7 +41,7 @@ export function StaffLeads() {
   }
 
   return (
-    <Shell role="business" logo="B" roleLabel="Team Member" navItems={NAV} activePath={pathname}
+    <Shell role="business" logo="B" roleLabel="Business Admin" navItems={BUSINESS_NAV} activePath={pathname}
       title="Leads" subtitle={`${leads?.length ?? 0} total`}
       topbarActions={
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ width: 160 }}>

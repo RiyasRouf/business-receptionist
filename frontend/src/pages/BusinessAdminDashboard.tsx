@@ -1,15 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api, type ApiSuccess } from '@/lib/api'
-import { Shell, type NavItem } from '@/components/Shell'
-
-const NAV: NavItem[] = [
-  { label: 'Dashboard', to: '/business' },
-  { label: 'Team', to: '/business/team', permission: 'team' },
-  { label: 'Knowledge Base', to: '/business/kb', permission: 'knowledge_base' },
-  { label: 'Leads', to: '/leads', permission: 'leads' },
-  { label: 'Roles & Permissions', to: '/business/roles', section: 'Configuration', permission: 'team' },
-]
+import { Shell } from '@/components/Shell'
+import { BUSINESS_NAV } from '@/lib/nav'
 
 interface TenantStats {
   minutes_used: number
@@ -39,7 +32,7 @@ export function BusinessAdminDashboard() {
   const pipelineMax = Math.max(1, ...pipelineEntries.map(([, v]) => v))
 
   return (
-    <Shell role="business" logo="B" roleLabel="Business Admin" navItems={NAV} activePath={pathname}
+    <Shell role="business" logo="B" roleLabel="Business Admin" navItems={BUSINESS_NAV} activePath={pathname}
       title="Overview" subtitle="This month"
       topbarActions={<button className="btn bp" onClick={() => navigate('/business/team')}>+ Team Member</button>}>
 

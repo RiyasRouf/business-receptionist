@@ -1,14 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api, type ApiSuccess } from '@/lib/api'
-import { Shell, type NavItem } from '@/components/Shell'
-
-const NAV: NavItem[] = [
-  { label: 'Dashboard', to: '/admin' },
-  { label: 'Tenants', to: '/admin/tenants' },
-  { label: 'Users', to: '/admin/users' },
-  { label: 'AI Providers', to: '/admin/ai-providers', section: 'Configuration' },
-]
+import { Shell } from '@/components/Shell'
+import { PLATFORM_NAV } from '@/lib/nav'
 
 interface PlatformStats {
   active_tenants: number
@@ -47,7 +41,7 @@ export function PlatformAdminDashboard() {
       role="platform"
       logo="B"
       roleLabel="Platform Admin"
-      navItems={NAV}
+      navItems={PLATFORM_NAV}
       activePath={pathname}
       title="Platform Overview"
       subtitle="All tenants · Live"

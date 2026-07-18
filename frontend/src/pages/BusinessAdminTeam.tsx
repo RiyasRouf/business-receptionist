@@ -3,15 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { api, type ApiError, type ApiSuccess } from '@/lib/api'
-import { Shell, type NavItem } from '@/components/Shell'
-
-const NAV: NavItem[] = [
-  { label: 'Dashboard', to: '/business' },
-  { label: 'Team', to: '/business/team', permission: 'team' },
-  { label: 'Knowledge Base', to: '/business/kb', permission: 'knowledge_base' },
-  { label: 'Leads', to: '/leads', permission: 'leads' },
-  { label: 'Roles & Permissions', to: '/business/roles', section: 'Configuration', permission: 'team' },
-]
+import { Shell } from '@/components/Shell'
+import { BUSINESS_NAV } from '@/lib/nav'
 
 interface TeamMember {
   user_id: string; name: string; email: string; role: string
@@ -61,7 +54,7 @@ export function BusinessAdminTeam() {
   })
 
   return (
-    <Shell role="business" logo="B" roleLabel="Business Admin" navItems={NAV} activePath={pathname}
+    <Shell role="business" logo="B" roleLabel="Business Admin" navItems={BUSINESS_NAV} activePath={pathname}
       title="Team" subtitle={`${team?.length ?? 0} members`}>
 
       <div className="card" style={{ marginBottom: 20, border: '1.5px solid #A7F3D0' }}>
