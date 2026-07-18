@@ -5,8 +5,13 @@ import { useAuth } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/routes/ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { PlatformAdminDashboard } from '@/pages/PlatformAdminDashboard'
-import { SchoolAdminDashboard } from '@/pages/SchoolAdminDashboard'
-import { StaffReviewDashboard } from '@/pages/StaffReviewDashboard'
+import { PlatformAdminTenants } from '@/pages/PlatformAdminTenants'
+import { PlatformAdminUsers } from '@/pages/PlatformAdminUsers'
+import { BusinessAdminDashboard } from '@/pages/BusinessAdminDashboard'
+import { BusinessAdminTeam } from '@/pages/BusinessAdminTeam'
+import { BusinessAdminKnowledgeBase } from '@/pages/BusinessAdminKnowledgeBase'
+import { StaffLeads } from '@/pages/StaffLeads'
+import { LeadDetail } from '@/pages/LeadDetail'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -44,19 +49,21 @@ function AppRoutes() {
 
       <Route element={<ProtectedRoute allowedRoles={['platform_admin']} />}>
         <Route path="/admin" element={<PlatformAdminDashboard />} />
+        <Route path="/admin/tenants" element={<PlatformAdminTenants />} />
+        <Route path="/admin/users" element={<PlatformAdminUsers />} />
       </Route>
 
-      {/* tenant_admin: knowledge base management (F-16/F-17). staff:
-          lead review (F-14/F-15). Each role gets its own home for now —
-          a combined view for tenant_admin (who arguably wants both) is
-          a reasonable follow-up, not built here to avoid guessing at
-          IA/nav structure that's really a design decision. */}
       <Route element={<ProtectedRoute allowedRoles={['tenant_admin']} />}>
-        <Route path="/school" element={<SchoolAdminDashboard />} />
+        <Route path="/school" element={<BusinessAdminDashboard />} />
+        <Route path="/school/team" element={<BusinessAdminTeam />} />
+        <Route path="/school/kb" element={<BusinessAdminKnowledgeBase />} />
       </Route>
 
-      <Route element={<ProtectedRoute allowedRoles={['staff']} />}>
-        <Route path="/leads" element={<StaffReviewDashboard />} />
+      {/* Leads: staff reviews them (F-14/F-15); tenant_admin can also
+          drill in from their dashboard's lead pipeline. */}
+      <Route element={<ProtectedRoute allowedRoles={['staff', 'tenant_admin']} />}>
+        <Route path="/leads" element={<StaffLeads />} />
+        <Route path="/leads/:leadId" element={<LeadDetail />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

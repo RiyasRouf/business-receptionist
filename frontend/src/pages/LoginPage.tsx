@@ -4,12 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import axios, { isAxiosError } from 'axios'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { authStore, type AuthUser } from '@/lib/auth-store'
 import type { ApiError, ApiSuccess } from '@/lib/api'
+import '@/design-system.css'
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -39,9 +36,8 @@ export function LoginPage() {
       )
 
       authStore.setSession(res.data.data.access_token, res.data.data.user)
-
-      const role = res.data.data.user.role
-      navigate(role === 'platform_admin' ? '/admin' : '/dashboard')
+      // Role-based landing route is resolved centrally by RootRedirect.
+      navigate('/')
     } catch (err) {
       if (isAxiosError<ApiError>(err) && err.response) {
         setServerError(err.response.data.message ?? 'Login failed.')
@@ -52,42 +48,45 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>AI Business Receptionist</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" autoComplete="email" {...register('email')} />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
-            </div>
+    <div className="ds-root" data-role="platform">
+      <div className="auth-wrap">
+        <div className="auth-card">
+          <div className="auth-logo">Business AI ✦</div>
+          <div className="auth-tag">AI Business Receptionist Platform</div>
+          <div className="auth-title">Sign in</div>
+          <div className="auth-sub">Enter your credentials to continue</div>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+            <label className="al" htmlFor="email">Email address</label>
+            <input
+              id="email"
+              className="ai-inp"
+              type="email"
+              autoComplete="email"
+              placeholder="you@business.ae"
+              {...register('email')}
+            />
+            {errors.email && <div className="af-err">{errors.email.message}</div>}
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                {...register('password')}
-              />
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
-              )}
-            </div>
+            <label className="al" htmlFor="password">Password</label>
+            <input
+              id="password"
+              className="ai-inp"
+              type="password"
+              autoComplete="current-password"
+              placeholder="••••••••••"
+              {...register('password')}
+            />
+            {errors.password && <div className="af-err">{errors.password.message}</div>}
 
-            {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+            {serverError && <div className="af-err">{serverError}</div>}
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Signing in…' : 'Sign in'}
-            </Button>
+            <button type="submit" className="ab" disabled={isSubmitting}>
+              {isSubmitting ? 'Signing in…' : 'Sign in →'}
+            </button>
           </form>
-        </CardContent>
-      </Card>
+          <div className="af">Role and access resolved automatically from your account</div>
+        </div>
+      </div>
     </div>
   )
 }
