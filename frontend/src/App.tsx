@@ -8,10 +8,18 @@ import { PlatformAdminDashboard } from '@/pages/PlatformAdminDashboard'
 import { PlatformAdminTenants } from '@/pages/PlatformAdminTenants'
 import { PlatformAdminUsers } from '@/pages/PlatformAdminUsers'
 import { PlatformAdminAIProviders } from '@/pages/PlatformAdminAIProviders'
+import { PlatformAdminVoice } from '@/pages/PlatformAdminVoice'
+import { PlatformAdminVoiceTenant } from '@/pages/PlatformAdminVoiceTenant'
+import { PlatformAdminBranding } from '@/pages/PlatformAdminBranding'
+import { PlatformAdminTenantBrand } from '@/pages/PlatformAdminTenantBrand'
+import { PlatformAdminHealth } from '@/pages/PlatformAdminHealth'
+import { PlatformAdminAuditLogs } from '@/pages/PlatformAdminAuditLogs'
 import { BusinessAdminDashboard } from '@/pages/BusinessAdminDashboard'
 import { BusinessAdminTeam } from '@/pages/BusinessAdminTeam'
 import { BusinessAdminKnowledgeBase } from '@/pages/BusinessAdminKnowledgeBase'
 import { BusinessAdminRoles } from '@/pages/BusinessAdminRoles'
+import { BusinessAdminVoice } from '@/pages/BusinessAdminVoice'
+import { BusinessAdminBranding } from '@/pages/BusinessAdminBranding'
 import { StaffLeads } from '@/pages/StaffLeads'
 import { LeadDetail } from '@/pages/LeadDetail'
 
@@ -62,6 +70,12 @@ function AppRoutes() {
         <Route path="/admin/tenants" element={<PlatformAdminTenants />} />
         <Route path="/admin/users" element={<PlatformAdminUsers />} />
         <Route path="/admin/ai-providers" element={<PlatformAdminAIProviders />} />
+        <Route path="/admin/voice" element={<PlatformAdminVoice />} />
+        <Route path="/admin/voice/:tenantId" element={<PlatformAdminVoiceTenant />} />
+        <Route path="/admin/branding" element={<PlatformAdminBranding />} />
+        <Route path="/admin/branding/:tenantId" element={<PlatformAdminTenantBrand />} />
+        <Route path="/admin/health" element={<PlatformAdminHealth />} />
+        <Route path="/admin/audit-logs" element={<PlatformAdminAuditLogs />} />
       </Route>
 
       {/* Only 2 system roles exist — everyone here is tenant_admin.
@@ -74,6 +88,8 @@ function AppRoutes() {
       <Route element={<ProtectedRoute allowedRoles={['tenant_admin']} requiredPermission="team" />}>
         <Route path="/business/team" element={<BusinessAdminTeam />} />
         <Route path="/business/roles" element={<BusinessAdminRoles />} />
+        <Route path="/business/voice" element={<BusinessAdminVoice />} />
+        <Route path="/business/brand" element={<BusinessAdminBranding />} />
       </Route>
       <Route element={<ProtectedRoute allowedRoles={['tenant_admin']} requiredPermission="knowledge_base" />}>
         <Route path="/business/kb" element={<BusinessAdminKnowledgeBase />} />

@@ -5,6 +5,7 @@ namespace App\Modules\CorePlatform\Http\Controllers;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Modules\CorePlatform\Http\ApiResponse;
+use App\Modules\CorePlatform\Http\LogsAudit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,7 @@ use Illuminate\Validation\Rule;
 class UserController
 {
     use ApiResponse;
+    use LogsAudit;
 
     /**
      * Tenant-scoped — tenant_admin lists their own tenant's team.
@@ -80,6 +82,8 @@ class UserController
             'custom_role_id' => $validated['custom_role_id'],
             'email_verified_at' => now(),
         ]);
+
+        $this->audit($request, 'team.created', 'user', $user->user_id, ['email' => $user->email, 'custom_role_id' => $user->custom_role_id]);
 
         return $this->success([
             'user' => $user,
@@ -143,6 +147,8 @@ class UserController
             'job_title' => $validated['job_title'] ?? null,
             'email_verified_at' => now(),
         ]);
+
+        $this->audit($request, 'admin.created', 'user', $user->user_id, ['email' => $user->email], $tenant->tenant_id);
 
         return $this->success([
             'user' => $user,

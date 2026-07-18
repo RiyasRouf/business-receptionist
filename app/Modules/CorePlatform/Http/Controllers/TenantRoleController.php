@@ -4,6 +4,7 @@ namespace App\Modules\CorePlatform\Http\Controllers;
 
 use App\Models\TenantRole;
 use App\Modules\CorePlatform\Http\ApiResponse;
+use App\Modules\CorePlatform\Http\LogsAudit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,6 +24,7 @@ use Illuminate\Http\Request;
 class TenantRoleController
 {
     use ApiResponse;
+    use LogsAudit;
 
     private const AVAILABLE_PERMISSIONS = ['leads', 'knowledge_base', 'live_calls', 'transcripts', 'team'];
 
@@ -59,6 +61,8 @@ class TenantRoleController
             'permissions_json' => $validated['permissions'],
         ]);
 
+        $this->audit($request, 'role.created', 'tenant_role', $role->role_id, ['name' => $role->name, 'permissions' => $role->permissions_json]);
+
         return $this->success($role, status: 201);
     }
 
@@ -85,6 +89,8 @@ class TenantRoleController
 
         $role->update($validated);
 
+        $this->audit($request, 'role.updated', 'tenant_role', $role->role_id, $validated);
+
         return $this->success($role);
     }
 
@@ -96,6 +102,8 @@ class TenantRoleController
         if ($role === null) {
             return $this->error('role_not_found', 'Role not found.', 404);
         }
+
+        $this->audit($request, 'role.deleted', 'tenant_role', $role->role_id, ['name' => $role->name]);
 
         $role->delete();
 

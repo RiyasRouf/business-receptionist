@@ -7,6 +7,7 @@ use App\Models\AiProviderModel;
 use App\Models\AiTurnLineage;
 use App\Models\Tenant;
 use App\Modules\CorePlatform\Http\ApiResponse;
+use App\Modules\CorePlatform\Http\LogsAudit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\Log;
 class AiProviderController
 {
     use ApiResponse;
+    use LogsAudit;
 
     public function index(Request $request): JsonResponse
     {
@@ -41,6 +43,8 @@ class AiProviderController
         ]);
 
         $provider = AiProvider::create($validated);
+
+        $this->audit($request, 'ai_provider.created', 'ai_provider', $provider->provider_id, ['name' => $provider->name]);
 
         return $this->success($provider, status: 201);
     }
@@ -60,6 +64,8 @@ class AiProviderController
         ]);
 
         $provider->update($validated);
+
+        $this->audit($request, 'ai_provider.updated', 'ai_provider', $provider->provider_id, ['status' => $validated['status'] ?? null]);
 
         return $this->success($provider);
     }
@@ -112,6 +118,8 @@ class AiProviderController
             'input_cost_per_1m' => $inputRate,
             'output_cost_per_1m' => $outputRate,
         ]);
+
+        $this->audit($request, 'ai_model.added', 'ai_provider_model', $model->model_id, ['name' => $model->name]);
 
         return $this->success($model, status: 201);
     }
@@ -195,6 +203,8 @@ class AiProviderController
         ]);
 
         $tenant->update($validated);
+
+        $this->audit($request, 'tenant.ai_assigned', 'tenant', $tenant->tenant_id, $validated, $tenant->tenant_id);
 
         return $this->success($tenant->fresh('aiModel'));
     }

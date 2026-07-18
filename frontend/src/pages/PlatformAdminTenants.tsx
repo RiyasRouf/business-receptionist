@@ -120,7 +120,7 @@ export function PlatformAdminTenants() {
           </div>
         )}
         <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
-          <button className="btn bp" disabled={createMutation.isPending} onClick={() => createMutation.mutate()}>
+          <button className="btn bp" disabled={createMutation.isPending} onClick={() => window.confirm(`Create tenant "${form.name}" with admin ${form.admin_email}?`) && createMutation.mutate()}>
             {createMutation.isPending ? 'Creating…' : 'Create Tenant + Send Invite'}
           </button>
         </div>

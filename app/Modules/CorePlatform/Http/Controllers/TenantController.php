@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Models\UsageAllowance;
 use App\Models\User;
 use App\Modules\CorePlatform\Http\ApiResponse;
+use App\Modules\CorePlatform\Http\LogsAudit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,7 @@ use Illuminate\Support\Str;
 class TenantController
 {
     use ApiResponse;
+    use LogsAudit;
 
     public function index(Request $request): JsonResponse
     {
@@ -117,6 +119,8 @@ class TenantController
 
         [$tenant, $admin, $allowance] = $result;
 
+        $this->audit($request, 'tenant.created', 'tenant', $tenant->tenant_id, ['name' => $tenant->name], $tenant->tenant_id);
+
         return $this->success([
             'tenant' => $tenant,
             'admin' => $admin,
@@ -152,6 +156,8 @@ class TenantController
                 'reset_day' => $validated['reset_day'] ?? 1,
             ],
         );
+
+        $this->audit($request, 'tenant.allowance_updated', 'usage_allowance', (string) $allowance->allowance_id, ['limit' => $validated['limit']], $tenantId);
 
         return $this->success($allowance);
     }

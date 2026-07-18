@@ -26,6 +26,9 @@ class Tenant extends Model
         'status',
         'limits_json',
         'ai_provider_model_id',
+        'brand_name',
+        'brand_color',
+        'brand_tagline',
     ];
 
     protected function casts(): array
@@ -44,5 +47,10 @@ class Tenant extends Model
     public function aiModel()
     {
         return $this->belongsTo(AiProviderModel::class, 'ai_provider_model_id', 'model_id');
+    }
+
+    public function integration()
+    {
+        return $this->hasOne(TenantIntegration::class, 'tenant_id', 'tenant_id');
     }
 }

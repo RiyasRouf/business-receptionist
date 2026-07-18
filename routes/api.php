@@ -2,10 +2,14 @@
 
 use App\Models\User;
 use App\Modules\CorePlatform\Http\Controllers\AiProviderController;
+use App\Modules\CorePlatform\Http\Controllers\AuditLogController;
 use App\Modules\CorePlatform\Http\Controllers\AuthController;
+use App\Modules\CorePlatform\Http\Controllers\BrandingController;
 use App\Modules\CorePlatform\Http\Controllers\DashboardController;
+use App\Modules\CorePlatform\Http\Controllers\HealthController;
 use App\Modules\CorePlatform\Http\Controllers\ReadinessController;
 use App\Modules\CorePlatform\Http\Controllers\TenantController;
+use App\Modules\CorePlatform\Http\Controllers\TenantIntegrationController;
 use App\Modules\CorePlatform\Http\Controllers\TenantRoleController;
 use App\Modules\CorePlatform\Http\Controllers\UserController;
 use App\Modules\KnowledgeBase\Http\Controllers\KnowledgeBaseController;
@@ -90,6 +94,15 @@ Route::prefix('v1')->group(function () {
                 // Read-only aggregate stats — no dedicated permission,
                 // available to anyone in the tenant.
                 Route::get('/dashboard', [DashboardController::class, 'tenant']);
+
+                // Self-service — tenant owns these settings, no separate
+                // permission key exists for them yet (admin-level config,
+                // same audience as /team).
+                Route::get('/integrations', [TenantIntegrationController::class, 'show']);
+                Route::put('/integrations/voice', [TenantIntegrationController::class, 'updateVoice']);
+                Route::put('/integrations/whatsapp', [TenantIntegrationController::class, 'updateWhatsapp']);
+                Route::get('/branding', [BrandingController::class, 'tenantShow']);
+                Route::put('/branding', [BrandingController::class, 'tenantUpdate']);
             });
 
         // Platform-wide — platform_admin only. No tenant.resolve: a
@@ -110,6 +123,22 @@ Route::prefix('v1')->group(function () {
             Route::get('/admin/ai-providers/{providerId}/available-models', [AiProviderController::class, 'fetchModels']);
             Route::put('/admin/tenants/{tenantId}/ai-assignment', [AiProviderController::class, 'assignTenant']);
             Route::get('/admin/usage-cost', [AiProviderController::class, 'costs']);
+
+            // Voice/WhatsApp assist — same tenant_integrations row the
+            // tenant edits themselves, just reachable with a route
+            // tenant_id instead of the caller's own auth_tenant_id.
+            Route::get('/admin/integrations', [TenantIntegrationController::class, 'platformIndex']);
+            Route::get('/admin/tenants/{tenantId}/integrations', [TenantIntegrationController::class, 'show']);
+            Route::put('/admin/tenants/{tenantId}/integrations/voice', [TenantIntegrationController::class, 'updateVoice']);
+            Route::put('/admin/tenants/{tenantId}/integrations/whatsapp', [TenantIntegrationController::class, 'updateWhatsapp']);
+
+            Route::get('/admin/branding', [BrandingController::class, 'platformShow']);
+            Route::put('/admin/branding', [BrandingController::class, 'platformUpdate']);
+            Route::get('/admin/tenants/{tenantId}/branding', [BrandingController::class, 'tenantShow']);
+            Route::put('/admin/tenants/{tenantId}/branding', [BrandingController::class, 'tenantUpdate']);
+
+            Route::get('/admin/health', [HealthController::class, 'platform']);
+            Route::get('/admin/audit-logs', [AuditLogController::class, 'index']);
         });
     });
 });

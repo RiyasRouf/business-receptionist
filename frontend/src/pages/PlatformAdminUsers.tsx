@@ -79,7 +79,7 @@ export function PlatformAdminUsers() {
           </div>
         )}
         <div style={{ marginTop: 14 }}>
-          <button className="btn bp" disabled={createMutation.isPending || !form.tenant_id} onClick={() => createMutation.mutate()}>
+          <button className="btn bp" disabled={createMutation.isPending || !form.tenant_id} onClick={() => window.confirm(`Create business admin ${form.email}?`) && createMutation.mutate()}>
             {createMutation.isPending ? 'Creating…' : 'Create + Send Invite'}
           </button>
         </div>

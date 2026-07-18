@@ -8,6 +8,7 @@ use App\Models\Session;
 use App\Models\Summary;
 use App\Models\Transcript;
 use App\Modules\CorePlatform\Http\ApiResponse;
+use App\Modules\CorePlatform\Http\LogsAudit;
 use Illuminate\Http\Request;
 
 /**
@@ -18,6 +19,7 @@ use Illuminate\Http\Request;
 class LeadController
 {
     use ApiResponse;
+    use LogsAudit;
 
     private const VALID_STATUSES = ['partial', 'complete', 'contacted', 'enrolled', 'closed'];
 
@@ -95,6 +97,8 @@ class LeadController
 
         $lead->staff_notes = $validated['notes'];
         $lead->save();
+
+        $this->audit($request, 'lead.notes_updated', 'lead', $lead->lead_id, []);
 
         return $this->success(['lead_id' => $lead->lead_id, 'staff_notes' => $lead->staff_notes]);
     }

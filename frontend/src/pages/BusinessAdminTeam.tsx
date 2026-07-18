@@ -85,7 +85,7 @@ export function BusinessAdminTeam() {
           </div>
         )}
         <div style={{ marginTop: 14 }}>
-          <button className="btn bp" disabled={createMutation.isPending || !name || !email || !customRoleId} onClick={() => createMutation.mutate()}>
+          <button className="btn bp" disabled={createMutation.isPending || !name || !email || !customRoleId} onClick={() => window.confirm(`Add ${name} to the team?`) && createMutation.mutate()}>
             {createMutation.isPending ? 'Creating…' : 'Create + Send Invite'}
           </button>
         </div>

@@ -81,7 +81,7 @@ export function LeadDetail() {
           <button
             className="btn bok"
             disabled={statusMutation.isPending || lead.status === 'contacted'}
-            onClick={() => statusMutation.mutate('contacted')}
+            onClick={() => window.confirm('Mark this lead as followed up?') && statusMutation.mutate('contacted')}
           >
             ✓ Mark Followed Up
           </button>
@@ -123,12 +123,15 @@ export function LeadDetail() {
                 onChange={(e) => setNotes(e.target.value)}
               />
               <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button className="btn bp" disabled={notesMutation.isPending} onClick={() => notesMutation.mutate()}>
+                <button className="btn bp" disabled={notesMutation.isPending} onClick={() => window.confirm('Save these notes?') && notesMutation.mutate()}>
                   {notesMutation.isPending ? 'Saving…' : 'Save Notes'}
                 </button>
                 <select
                   value={lead.status}
-                  onChange={(e) => statusMutation.mutate(e.target.value)}
+                  onChange={(e) => {
+                    const status = e.target.value
+                    if (window.confirm(`Change status to "${STATUS_LABEL[status] ?? status}"?`)) statusMutation.mutate(status)
+                  }}
                   disabled={statusMutation.isPending}
                   style={{ width: 160 }}
                 >
