@@ -47,8 +47,8 @@ export function PlatformAdminTenantBrand() {
         <div className="fg"><label className="fl">Display Name</label><input value={form.brand_name} onChange={(e) => setForm((f) => ({ ...f, brand_name: e.target.value }))} /></div>
         <div className="fg"><label className="fl">Primary Colour</label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input type="color" value={form.brand_color} onChange={(e) => setForm((f) => ({ ...f, brand_color: e.target.value }))} style={{ width: 40, height: 32, padding: 2 }} />
             <input value={form.brand_color} onChange={(e) => setForm((f) => ({ ...f, brand_color: e.target.value }))} style={{ width: 120 }} />
-            <div style={{ width: 32, height: 32, borderRadius: 'var(--r1)', background: form.brand_color, border: '1px solid var(--bdr)' }} />
           </div>
         </div>
         <div className="fg" style={{ margin: 0 }}><label className="fl">Login Tagline</label><input value={form.brand_tagline} onChange={(e) => setForm((f) => ({ ...f, brand_tagline: e.target.value }))} /></div>

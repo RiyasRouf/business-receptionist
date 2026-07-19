@@ -45,6 +45,7 @@ export function BusinessAdminBranding() {
         <div className="fg"><label className="fl">Display Name</label><input value={form.brand_name} onChange={(e) => setForm((f) => ({ ...f, brand_name: e.target.value }))} placeholder="Your AI Receptionist" /></div>
         <div className="fg"><label className="fl">Primary Colour</label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input type="color" value={form.brand_color} onChange={(e) => setForm((f) => ({ ...f, brand_color: e.target.value }))} style={{ width: 40, height: 32, padding: 2 }} />
             <input value={form.brand_color} onChange={(e) => setForm((f) => ({ ...f, brand_color: e.target.value }))} style={{ width: 120 }} />
             {SWATCHES.map((c) => (
               <div key={c} onClick={() => setForm((f) => ({ ...f, brand_color: c }))}
