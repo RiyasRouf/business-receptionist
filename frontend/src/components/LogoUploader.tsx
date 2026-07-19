@@ -8,7 +8,7 @@ interface LogoUploaderProps {
   queryKey: QueryKey
 }
 
-const ACCEPT = 'image/png,image/jpeg,image/svg+xml,image/webp'
+const ACCEPT = 'image/*,.svg,.ico,.tiff,.tif,.avif,.heic,.heif'
 
 export function LogoUploader({ logoUrl, uploadUrl, deleteUrl, queryKey }: LogoUploaderProps) {
   const queryClient = useQueryClient()
@@ -58,7 +58,7 @@ export function LogoUploader({ logoUrl, uploadUrl, deleteUrl, queryKey }: LogoUp
         )}
       </div>
       {upload.isPending && <div className="cs">Uploading…</div>}
-      {upload.isError && <div className="af-err">Upload failed. PNG/JPG/SVG/WEBP, max 2MB.</div>}
+      {upload.isError && <div className="af-err">Upload failed. Common image formats, max 5MB.</div>}
     </div>
   )
 }

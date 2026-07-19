@@ -15,7 +15,7 @@ class BrandingController
     use ApiResponse;
     use LogsAudit;
 
-    private const LOGO_RULES = ['image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'];
+    private const LOGO_RULES = ['mimes:png,jpg,jpeg,jpe,gif,bmp,svg,webp,ico,tiff,tif,avif,heic,heif', 'max:5120'];
 
     public function platformShow(): JsonResponse
     {
