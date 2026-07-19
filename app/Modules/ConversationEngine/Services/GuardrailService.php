@@ -73,11 +73,20 @@ class GuardrailService
      * tenant's configured fallback — never delivered as-is, regardless
      * of what the model produced (module 5 sprint task AC).
      */
+    /**
+     * Grounding sentinel: the system prompt instructs the model to emit
+     * exactly this when a FACTUAL business question has no KB coverage.
+     * Conversational turns (greetings, "can you repeat that", thanks)
+     * are allowed through without KB — the old blanket "no KB = replace
+     * with fallback" rule made the agent unable to hold a conversation.
+     */
+    public const CANNOT_CONFIRM = 'CANNOT_CONFIRM';
+
     public function postCheck(string $response, bool $kbMatched, string $fallbackPhrase): GuardrailResult
     {
-        if (! $kbMatched && trim($response) !== '' && ! str_contains($response, $fallbackPhrase)) {
+        if (str_contains($response, self::CANNOT_CONFIRM)) {
             return GuardrailResult::fail(
-                reason: 'no_kb_match_unfabricated_response',
+                reason: 'model_declared_no_grounding',
                 fallbackResponse: $fallbackPhrase,
             );
         }

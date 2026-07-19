@@ -38,6 +38,28 @@ class TenantController
         );
     }
 
+    public function update(Request $request, string $tenantId): JsonResponse
+    {
+        $tenant = Tenant::find($tenantId);
+
+        if ($tenant === null) {
+            return $this->error('tenant_not_found', 'Tenant not found.', 404);
+        }
+
+        $validated = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'industry' => ['sometimes', 'nullable', 'string', 'max:128'],
+            'country' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'status' => ['sometimes', 'string', 'in:active,suspended'],
+        ]);
+
+        $tenant->update($validated);
+
+        $this->audit($request, 'tenant.updated', 'tenant', $tenant->tenant_id, $validated, $tenant->tenant_id);
+
+        return $this->success($tenant);
+    }
+
     public function show(string $tenantId): JsonResponse
     {
         $tenant = Tenant::find($tenantId);

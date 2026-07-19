@@ -172,7 +172,14 @@
 .af-err { text-align: center; margin-top: 12px; font-size: 12px; color: #FCA5A5; }
 
 /* Confirm dialog (swal-style) — accent from --p so it re-skins with brand */
-.cfm-overlay { position: fixed; inset: 0; background: rgba(15,15,35,.55); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 300; padding: 20px; animation: cfmFade .15s ease-out; }
+.cfm-overlay {
+  /* Host renders outside .ds-root, so the theme vars don't cascade here —
+     without these defaults the confirm button rendered white/invisible. */
+  --p: #6366F1; --p-15: rgba(99,102,241,.15); --p-40: rgba(99,102,241,.4);
+  --card: #FFF; --bg: #F8F9FF; --bdr: #E5E7EB; --err: #EF4444;
+  --t1: #111827; --t2: #6B7280; --t3: #9CA3AF;
+  --fd: 'Plus Jakarta Sans', sans-serif; --fb: 'Inter', sans-serif;
+  position: fixed; inset: 0; background: rgba(15,15,35,.55); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 300; padding: 20px; animation: cfmFade .15s ease-out; }
 .cfm-card { background: var(--card); border-radius: 20px; padding: 30px 28px 24px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 24px 64px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.06); animation: cfmPop .18s cubic-bezier(.34,1.4,.64,1); }
 .cfm-icon { width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; background: var(--p-15); color: var(--p); }
 .cfm-danger .cfm-icon { background: #FEF2F2; color: var(--err); }

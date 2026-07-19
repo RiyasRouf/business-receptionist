@@ -138,6 +138,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/admin/tenants', [TenantController::class, 'index']);
             Route::post('/admin/tenants', [TenantController::class, 'store']);
             Route::get('/admin/tenants/{tenantId}', [TenantController::class, 'show']);
+            Route::put('/admin/tenants/{tenantId}', [TenantController::class, 'update']);
             Route::put('/admin/tenants/{tenantId}/allowances', [TenantController::class, 'setAllowance']);
             Route::get('/admin/users', [UserController::class, 'indexAdmins']);
             Route::post('/admin/users', [UserController::class, 'storeAdmin']);

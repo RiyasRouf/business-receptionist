@@ -149,7 +149,10 @@ class AiProviderController
             if ($provider->api_key && str_contains($names, 'openai')) {
                 $resp = Http::withToken($provider->api_key)->timeout(8)->get('https://api.openai.com/v1/models');
                 if ($resp->successful()) {
-                    $live = collect($resp->json('data'))->pluck('id')->filter(fn ($id) => str_starts_with($id, 'gpt-'))->values()->all();
+                    // Keep every chat-capable family, not only gpt-*
+                    $live = collect($resp->json('data'))->pluck('id')
+                        ->filter(fn ($id) => preg_match('/^(gpt-|o[0-9]|chatgpt-)/', $id))
+                        ->values()->all();
                 }
             } elseif ($provider->api_key && (str_contains($names, 'gemini') || str_contains($names, 'google'))) {
                 $resp = Http::timeout(8)->get('https://generativelanguage.googleapis.com/v1beta/models', ['key' => $provider->api_key]);

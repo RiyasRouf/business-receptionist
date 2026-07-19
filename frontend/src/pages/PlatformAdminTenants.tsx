@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { api, type ApiError, type ApiSuccess } from '@/lib/api'
 import { Shell } from '@/components/Shell'
+import { confirmAction } from '@/components/confirm'
 import { PLATFORM_NAV } from '@/lib/nav'
 
 const INDUSTRIES = ['Education', 'Real Estate', 'Healthcare', 'Hospitality', 'Other']
@@ -45,6 +46,13 @@ export function PlatformAdminTenants() {
   })
   const [result, setResult] = useState<CreateTenantResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Tenant | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', industry: '', country: '', status: 'active' })
+
+  const updateMutation = useMutation({
+    mutationFn: () => api.put(`/admin/tenants/${editing!.tenant_id}`, editForm),
+    onSuccess: () => { setEditing(null); queryClient.invalidateQueries({ queryKey: ['admin', 'tenants'] }) },
+  })
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -132,10 +140,38 @@ export function PlatformAdminTenants() {
             <div className={`ri ${GRADIENTS[i % GRADIENTS.length]}`}>{initials(t.name ?? t.slug)}</div>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 1 }}>{t.name ?? t.slug}</div>
             <div style={{ fontSize: 10.5, color: 'var(--t3)', marginBottom: 8 }}>{[t.industry, t.country].filter(Boolean).join(' · ') || '—'}</div>
-            <div className={`bdg ${t.status === 'active' ? 'b-ok' : 'b-er'}`}>{t.status === 'active' ? 'Active' : 'Suspended'}</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className={`bdg ${t.status === 'active' ? 'b-ok' : 'b-er'}`}>{t.status === 'active' ? 'Active' : 'Suspended'}</div>
+              <button className="btn bs bsm" onClick={() => { setEditing(t); setEditForm({ name: t.name ?? '', industry: t.industry ?? '', country: t.country ?? '', status: t.status }) }}>Edit</button>
+            </div>
           </div>
         ))}
       </div>
+
+      {editing && (
+        <div className="modal-overlay" onClick={() => setEditing(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="ct" style={{ marginBottom: 12 }}>Edit Tenant</div>
+            <div className="fg"><label className="fl">Business Name</label><input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="fg"><label className="fl">Industry</label>
+                <select value={editForm.industry} onChange={(e) => setEditForm((f) => ({ ...f, industry: e.target.value }))}>{INDUSTRIES.map((i) => <option key={i}>{i}</option>)}</select></div>
+              <div className="fg"><label className="fl">Country</label>
+                <select value={editForm.country} onChange={(e) => setEditForm((f) => ({ ...f, country: e.target.value }))}>{COUNTRIES.map((c) => <option key={c}>{c}</option>)}</select></div>
+            </div>
+            <div className="fg"><label className="fl">Status</label>
+              <select value={editForm.status} onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}><option value="active">Active</option><option value="suspended">Suspended</option></select></div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button className="btn bs" onClick={() => setEditing(null)}>Cancel</button>
+              <button className="btn bp" disabled={updateMutation.isPending} onClick={() => {
+                if (editForm.status !== editing.status) {
+                  confirmAction({ title: `${editForm.status === 'suspended' ? 'Suspend' : 'Reactivate'} ${editing.name ?? editing.slug}?`, danger: editForm.status === 'suspended', confirmText: editForm.status === 'suspended' ? 'Suspend' : 'Reactivate' }).then((ok) => ok && updateMutation.mutate())
+                } else updateMutation.mutate()
+              }}>{updateMutation.isPending ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </Shell>
   )
 }
