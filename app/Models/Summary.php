@@ -22,6 +22,10 @@ class Summary extends Model
         'session_id',
         'content',
         'action_items_json',
+        'caller_intent',
+        'sentiment',
+        'outcome',
+        'callback_requested',
     ];
 
     protected function casts(): array

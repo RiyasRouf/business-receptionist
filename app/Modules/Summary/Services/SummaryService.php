@@ -10,12 +10,10 @@ use App\Modules\OutboxRelay\Services\OutboxService;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Post-call AI summarisation + structured action items (ADR-007 async
- * post-call pipeline). With MockAIProvider, the "summary" is a
- * deterministic placeholder, not a real distillation — real
- * summarisation needs a working chat provider (blocked, see Module 5).
- * The pipeline (transcript in, summary + action_items stored, event
- * emitted) is fully wired regardless of which provider answers.
+ * Post-call AI summarisation (ADR-007 async post-call pipeline). The
+ * model is asked for strict JSON so the summary lands as structured,
+ * queryable data (intent/sentiment/outcome/callback) — with a plain-text
+ * fallback parse if the model ignores the format.
  */
 class SummaryService
 {
@@ -27,25 +25,37 @@ class SummaryService
     public function generateSummary(Session $session, Transcript $transcript): Summary
     {
         $messages = [
-            ['role' => 'system', 'content' => 'Summarise this school admissions call in 2-3 sentences. Then list any follow-up action items as a short bullet list prefixed with "- ".'],
-            ['role' => 'user', 'content' => $transcript->content],
+            ['role' => 'system', 'content' => <<<'PROMPT'
+You summarise business receptionist conversations. Reply with ONLY a JSON object, no markdown fences, with exactly these keys:
+{"summary": "2-3 sentence factual summary of the conversation",
+ "caller_intent": "short phrase, e.g. admission enquiry, pricing question, complaint",
+ "sentiment": "positive|neutral|negative",
+ "outcome": "lead_captured|answered|escalated|incomplete",
+ "callback_requested": true|false,
+ "action_items": ["short imperative follow-up items, empty array if none"]}
+PROMPT],
+            ['role' => 'user', 'content' => "Channel: {$session->channel}\n\nTranscript:\n{$transcript->content}"],
         ];
 
         $aiResponse = $this->ai->complete($messages);
-        [$summaryText, $actionItems] = $this->parseSummary($aiResponse->content);
+        $parsed = $this->parse($aiResponse->content);
 
-        return DB::transaction(function () use ($session, $summaryText, $actionItems) {
+        return DB::transaction(function () use ($session, $parsed) {
             $summary = Summary::create([
                 'tenant_id' => $session->tenant_id,
                 'session_id' => $session->session_id,
-                'content' => $summaryText,
-                'action_items_json' => $actionItems,
+                'content' => $parsed['summary'],
+                'action_items_json' => $parsed['action_items'],
+                'caller_intent' => $parsed['caller_intent'],
+                'sentiment' => $parsed['sentiment'],
+                'outcome' => $parsed['outcome'],
+                'callback_requested' => $parsed['callback_requested'],
             ]);
 
             $this->outbox->write(
                 tenantId: $session->tenant_id,
                 eventType: 'summary.generated',
-                payload: ['summary_id' => $summary->summary_id],
+                payload: ['summary_id' => $summary->summary_id, 'outcome' => $summary->outcome],
                 sessionId: $session->session_id,
             );
 
@@ -54,15 +64,31 @@ class SummaryService
     }
 
     /**
-     * @return array{0: string, 1: string[]}
+     * @return array{summary: string, caller_intent: ?string, sentiment: ?string, outcome: ?string, callback_requested: bool, action_items: string[]}
      */
-    private function parseSummary(string $raw): array
+    private function parse(string $raw): array
     {
-        $lines = explode("\n", trim($raw));
+        // Strip accidental markdown fences, then try strict JSON.
+        $clean = trim(preg_replace('/^```(?:json)?|```$/m', '', trim($raw)));
+        $json = json_decode($clean, true);
+
+        if (is_array($json) && isset($json['summary'])) {
+            return [
+                'summary' => (string) $json['summary'],
+                'caller_intent' => isset($json['caller_intent']) ? substr((string) $json['caller_intent'], 0, 255) : null,
+                'sentiment' => in_array($json['sentiment'] ?? null, ['positive', 'neutral', 'negative'], true) ? $json['sentiment'] : null,
+                'outcome' => in_array($json['outcome'] ?? null, ['lead_captured', 'answered', 'escalated', 'incomplete'], true) ? $json['outcome'] : null,
+                'callback_requested' => (bool) ($json['callback_requested'] ?? false),
+                'action_items' => array_values(array_map('strval', (array) ($json['action_items'] ?? []))),
+            ];
+        }
+
+        // Fallback: legacy "prose + - bullets" parse so a non-JSON reply
+        // still produces a usable summary instead of failing the pipeline.
         $summaryLines = [];
         $actionItems = [];
 
-        foreach ($lines as $line) {
+        foreach (explode("\n", trim($raw)) as $line) {
             $trimmed = trim($line);
 
             if (str_starts_with($trimmed, '-')) {
@@ -72,6 +98,13 @@ class SummaryService
             }
         }
 
-        return [implode(' ', $summaryLines), $actionItems];
+        return [
+            'summary' => implode(' ', $summaryLines),
+            'caller_intent' => null,
+            'sentiment' => null,
+            'outcome' => null,
+            'callback_requested' => false,
+            'action_items' => $actionItems,
+        ];
     }
 }

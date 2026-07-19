@@ -47,6 +47,7 @@ Route::prefix('v1')->group(function () {
     // Twilio webhooks — no JWT; per-tenant X-Twilio-Signature HMAC is
     // validated inside the controller (tenant resolved by called number).
     Route::post('/twilio/voice', [TwilioWebhookController::class, 'voice']);
+    Route::post('/twilio/voice/turn', [TwilioWebhookController::class, 'voiceTurn']);
     Route::post('/twilio/status', [TwilioWebhookController::class, 'status']);
     Route::post('/twilio/recording', [TwilioWebhookController::class, 'recording']);
     Route::post('/twilio/whatsapp/inbound', [TwilioWebhookController::class, 'whatsappInbound']);
