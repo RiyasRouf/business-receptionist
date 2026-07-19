@@ -42,6 +42,7 @@ class ConversationEngine
         private readonly EscalationService $escalation,
         private readonly OutboxService $outbox,
         private readonly TraceContext $trace,
+        private readonly LeadFieldExtractor $extractor,
     ) {}
 
     public function startSession(string $tenantId, string $channel, ?string $callerNumber = null): Session
@@ -262,8 +263,21 @@ class ConversationEngine
     private function handleLeadFieldAnswer(Session $session, array $meta, string $input): TurnResult
     {
         $field = LeadField::from($meta['awaiting_field']);
+
+        // Structured extraction — store only the actual value (name,
+        // digits, email...), never the caller's whole sentence. Null =
+        // nothing usable in the utterance: re-ask instead of storing junk.
+        $value = $this->extractor->extract($field, $input);
+
+        if ($value === null) {
+            $retry = "Sorry, I didn't quite get that. ".$this->fieldPrompt($field);
+            $this->appendTurn($session, 'assistant', $retry);
+
+            return new TurnResult($retry, ConversationState::LeadCapture);
+        }
+
         $lead = $this->leadCapture->getOrCreateForSession($session->tenant_id, $session->session_id);
-        $lead = $this->leadCapture->captureField($lead, $field, $input);
+        $lead = $this->leadCapture->captureField($lead, $field, $value);
 
         $missing = $this->leadCapture->missingMvpFields($lead);
 
@@ -321,7 +335,7 @@ class ConversationEngine
         $name = $fields[LeadField::ParentName->value] ?? 'there';
         $child = $fields[LeadField::ChildName->value] ?? 'your child';
 
-        return "Thanks, {$name} — I've got everything I need for {$child}'s enquiry. Our admissions team will follow up with you soon.";
+        return "Perfect, thank you {$name}! I have all the details for {$child}'s enquiry. Someone from our team will reach out to you shortly. Is there anything else I can help you with?";
     }
 
     private function fieldPrompt(LeadField $field): string
