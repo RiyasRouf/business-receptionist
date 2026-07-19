@@ -35,17 +35,27 @@ class TwilioWebhookController
 
     private function resolveTenant(Request $request): ?TenantIntegration
     {
-        $called = $request->input('To') ?? $request->input('Called');
+        // Inbound: tenant's number is To/Called. Outbound test calls
+        // (Create Test Call → webhook-driven AI loop): tenant's number is
+        // From. Try both — candidate values are the tenant's own numbers,
+        // so a caller can't spoof their way into another tenant.
+        foreach ([$request->input('To'), $request->input('Called'), $request->input('From')] as $candidate) {
+            if (! $candidate) {
+                continue;
+            }
 
-        if (! $called) {
-            return null;
+            $number = str_replace('whatsapp:', '', $candidate);
+
+            $match = TenantIntegration::where('voice_phone_number', $number)
+                ->orWhere('whatsapp_number', $number)
+                ->first();
+
+            if ($match) {
+                return $match;
+            }
         }
 
-        $number = str_replace('whatsapp:', '', $called);
-
-        return TenantIntegration::where('voice_phone_number', $number)
-            ->orWhere('whatsapp_number', $number)
-            ->first();
+        return null;
     }
 
     private function validSignature(Request $request, ?string $authToken): bool

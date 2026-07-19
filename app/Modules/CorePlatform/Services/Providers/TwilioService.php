@@ -161,7 +161,9 @@ class TwilioService
         $payload = [
             'To' => $to,
             'From' => $i->voice_phone_number,
-            'Twiml' => $twiml,
+            // Full AI conversation loop, not a canned message — Twilio
+            // fetches TwiML from our voice webhook when the callee answers.
+            'Url' => url('/api/v1/twilio/voice'),
         ];
         if ($i->voice_machine_detection) {
             $payload['MachineDetection'] = 'Enable';
