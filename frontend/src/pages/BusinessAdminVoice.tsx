@@ -32,6 +32,29 @@ const VOICES: Record<string, string> = {
   'Polly.Aria-Neural': 'New Zealand English (female, neural)',
 }
 
+// BCP-47 tag per accent so the browser's own TTS engine (Web Speech API)
+// picks a locale-matched voice for an instant, free, no-call preview.
+// Approximate accent only — the real call still uses the exact Polly
+// voice above; this is just for auditioning without dialing anyone.
+const VOICE_LANG: Record<string, string> = {
+  'Polly.Amy-Neural': 'en-GB', 'Polly.Brian-Neural': 'en-GB', 'Polly.Emma-Neural': 'en-GB', 'Polly.Arthur-Neural': 'en-GB',
+  'Polly.Kajal-Neural': 'en-IN', 'Polly.Aditi': 'en-IN',
+  'Polly.Olivia-Neural': 'en-AU', 'Polly.Russell': 'en-AU',
+  'Polly.Niamh-Neural': 'en-IE', 'Polly.Geraint': 'en-GB',
+  'Polly.Ayanda-Neural': 'en-ZA', 'Polly.Aria-Neural': 'en-NZ',
+}
+
+function speakPreview(voiceId: string) {
+  if (!('speechSynthesis' in window)) return
+  const lang = VOICE_LANG[voiceId] ?? 'en-US'
+  const utter = new SpeechSynthesisUtterance(`Hello! This is a preview of the ${VOICES[voiceId] ?? voiceId} voice for your AI receptionist.`)
+  const voices = window.speechSynthesis.getVoices()
+  utter.voice = voices.find((v) => v.lang === lang) ?? voices.find((v) => v.lang.startsWith(lang.slice(0, 2))) ?? null
+  utter.lang = lang
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.speak(utter)
+}
+
 interface Integration {
   voice_provider: string | null; voice_account_sid: string | null; voice_phone_number: string | null
   voice_api_key: string | null; voice_app_sid: string | null; voice_region: string | null
@@ -148,7 +171,6 @@ export function BusinessAdminVoice() {
   const vCall = useTest('/integrations/voice/test-call', refresh)
   const vSync = useTest('/integrations/voice/sync-numbers', refresh)
   const vWire = useTest('/integrations/voice/wire-webhook', refresh)
-  const vPreview = useTest('/integrations/voice/preview-voice', refresh)
   const wVerify = useTest('/integrations/whatsapp/verify', refresh)
   const wSend = useTest('/integrations/whatsapp/test-send', refresh)
 
@@ -188,11 +210,9 @@ export function BusinessAdminVoice() {
               <select value={voice.voice_tts_voice} onChange={(e) => setVoice((f) => ({ ...f, voice_tts_voice: e.target.value }))} style={{ flex: 1 }}>
                 {Object.entries(VOICES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
               </select>
-              <button type="button" className="btn bs bsm" disabled={vPreview.m.isPending || !testCallTo} onClick={() => confirmAction({ title: 'Preview this voice?', message: `A real call will be placed to ${testCallTo}.`, confirmText: 'Call' }).then((ok) => ok && vPreview.m.mutate({ to: testCallTo, voice: voice.voice_tts_voice }))}>
-                {vPreview.m.isPending ? 'Calling…' : 'Test Voice'}
-              </button>
+              <button type="button" className="btn bs bsm" onClick={() => speakPreview(voice.voice_tts_voice)}>🔊 Test Voice</button>
             </div>
-            <div className="cs" style={{ margin: '4px 0 0' }}>Uses the test-call number below</div>
+            <div className="cs" style={{ margin: '4px 0 0' }}>Instant in-browser preview — no call placed</div>
           </div>
         </div>
 
