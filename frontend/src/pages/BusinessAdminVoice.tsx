@@ -44,12 +44,32 @@ const VOICE_LANG: Record<string, string> = {
   'Polly.Ayanda-Neural': 'en-ZA', 'Polly.Aria-Neural': 'en-NZ',
 }
 
-function speakPreview(voiceId: string) {
+function loadVoices(): Promise<SpeechSynthesisVoice[]> {
+  const existing = window.speechSynthesis.getVoices()
+  if (existing.length) return Promise.resolve(existing)
+
+  return new Promise((resolve) => {
+    window.speechSynthesis.onvoiceschanged = () => resolve(window.speechSynthesis.getVoices())
+    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1000)
+  })
+}
+
+async function speakPreview(voiceId: string) {
   if (!('speechSynthesis' in window)) return
   const lang = VOICE_LANG[voiceId] ?? 'en-US'
+  const voices = await loadVoices()
+
+  // Exact locale match only — matching just the "en" prefix (the
+  // previous bug) grabs whatever English voice comes first for every
+  // accent, which is why they all sounded the same.
+  const matched = voices.find((v) => v.lang.toLowerCase() === lang.toLowerCase())
+
+  if (!matched) {
+    window.alert(`Your browser/OS has no installed voice for this accent (${lang}). This preview is approximate only — the real call always uses the exact ${VOICES[voiceId]} voice via Twilio.`)
+  }
+
   const utter = new SpeechSynthesisUtterance(`Hello! This is a preview of the ${VOICES[voiceId] ?? voiceId} voice for your AI receptionist.`)
-  const voices = window.speechSynthesis.getVoices()
-  utter.voice = voices.find((v) => v.lang === lang) ?? voices.find((v) => v.lang.startsWith(lang.slice(0, 2))) ?? null
+  utter.voice = matched ?? null
   utter.lang = lang
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(utter)
