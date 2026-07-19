@@ -226,7 +226,19 @@ class ConversationEngine
 
         $retrieval = $this->retrieval->retrieveDetailed($session->tenant_id, $input, 5);
         $kbMatched = $retrieval->chunks !== [];
-        $context = $kbMatched ? "Knowledge base context:\n".implode("\n", array_column($retrieval->chunks, 'content')) : '';
+
+        // This path is always a factual question (it passed the question
+        // heuristic). No KB coverage = nothing groundable — answer
+        // deterministically without an LLM call at all: the small model
+        // was observed inventing an answer here despite the sentinel rule.
+        if (! $kbMatched) {
+            $response = $fallbackPhrase.' '.$this->fieldPrompt(LeadField::from($meta['awaiting_field']));
+            $this->appendTurn($session, 'assistant', $response);
+
+            return new TurnResult($response, ConversationState::LeadCapture, true, 'post');
+        }
+
+        $context = "Knowledge base context:\n".implode("\n", array_column($retrieval->chunks, 'content'));
 
         $tenant = \App\Models\Tenant::find($session->tenant_id);
         $businessName = $tenant?->brand_name ?: ($tenant?->name ?: 'the business');
