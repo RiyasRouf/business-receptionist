@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useSessionBootstrap } from '@/hooks/use-session-bootstrap'
 import { useAuth } from '@/hooks/use-auth'
 import { ProtectedRoute } from '@/routes/ProtectedRoute'
+import { ConfirmHost } from '@/components/confirm'
 import { LoginPage } from '@/pages/LoginPage'
 import { PlatformAdminDashboard } from '@/pages/PlatformAdminDashboard'
 import { PlatformAdminTenants } from '@/pages/PlatformAdminTenants'
@@ -111,6 +112,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AppRoutes />
+        <ConfirmHost />
       </BrowserRouter>
     </QueryClientProvider>
   )

@@ -31,18 +31,12 @@ export function PlatformAdminVoiceTenant() {
   const [wa, setWa] = useState({ whatsapp_number: '', whatsapp_display_name: '', whatsapp_phone_number_id: '', whatsapp_token: '', whatsapp_greeting: '' })
 
   const saveVoice = useMutation({
-    mutationFn: () => {
-      if (!window.confirm("Save this tenant's voice configuration?")) return Promise.reject('cancelled')
-      return api.put(`/admin/tenants/${tenantId}/integrations/voice`, { voice_provider: provider, ...voice })
-    },
+    mutationFn: () => api.put(`/admin/tenants/${tenantId}/integrations/voice`, { voice_provider: provider, ...voice }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'integrations'] }),
   })
 
   const saveWa = useMutation({
-    mutationFn: () => {
-      if (!window.confirm("Save this tenant's WhatsApp configuration?")) return Promise.reject('cancelled')
-      return api.put(`/admin/tenants/${tenantId}/integrations/whatsapp`, wa)
-    },
+    mutationFn: () => api.put(`/admin/tenants/${tenantId}/integrations/whatsapp`, wa),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'integrations'] }),
   })
 

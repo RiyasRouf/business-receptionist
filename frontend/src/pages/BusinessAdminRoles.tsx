@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type ApiSuccess } from '@/lib/api'
 import { Shell } from '@/components/Shell'
+import { confirmAction } from '@/components/confirm'
 import { BUSINESS_NAV } from '@/lib/nav'
 
 const PERMISSION_INFO: Record<string, { label: string; sub: string }> = {
@@ -111,7 +112,7 @@ export function BusinessAdminRoles() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn bp" disabled={saving || !form.name || selected.size === 0}
-            onClick={() => window.confirm(`${isEditing ? 'Save changes to' : 'Create'} role "${form.name}"?`) && (isEditing ? updateRole.mutate() : createRole.mutate())}>
+            onClick={() => (isEditing ? updateRole.mutate() : createRole.mutate())}>
             {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Role'}
           </button>
           {isEditing && <button className="btn bs" onClick={resetForm}>Cancel</button>}
@@ -135,7 +136,7 @@ export function BusinessAdminRoles() {
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn bs bsm" onClick={() => startEdit(role)}>Edit</button>
-                <button className="btn ber bsm" disabled={deleteRole.isPending} onClick={() => window.confirm(`Delete role "${role.name}"? ${role.users_count} staff assigned to it will lose access.`) && deleteRole.mutate(role.role_id)}>Delete</button>
+                <button className="btn ber bsm" disabled={deleteRole.isPending} onClick={() => confirmAction({ title: `Delete role "${role.name}"?`, message: `${role.users_count} staff assigned to it will lose access.`, danger: true, confirmText: 'Delete' }).then((ok) => ok && deleteRole.mutate(role.role_id))}>Delete</button>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

@@ -29,10 +29,7 @@ export function PlatformAdminBranding() {
   }, [data])
 
   const save = useMutation({
-    mutationFn: () => {
-      if (!window.confirm('Save platform branding? This updates the login page and all Platform Admin screens.')) return Promise.reject('cancelled')
-      return api.put('/admin/branding', form)
-    },
+    mutationFn: () => api.put('/admin/branding', form),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'branding'] }),
   })
 

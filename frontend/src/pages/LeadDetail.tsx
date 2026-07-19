@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type ApiSuccess } from '@/lib/api'
 import { Shell } from '@/components/Shell'
+import { confirmAction } from '@/components/confirm'
 import { BUSINESS_NAV } from '@/lib/nav'
 
 interface TimelineEvent {
@@ -81,7 +82,7 @@ export function LeadDetail() {
           <button
             className="btn bok"
             disabled={statusMutation.isPending || lead.status === 'contacted'}
-            onClick={() => window.confirm('Mark this lead as followed up?') && statusMutation.mutate('contacted')}
+            onClick={() => confirmAction({ title: 'Mark as followed up?', confirmText: 'Mark' }).then((ok) => ok && statusMutation.mutate('contacted'))}
           >
             ✓ Mark Followed Up
           </button>
@@ -123,14 +124,14 @@ export function LeadDetail() {
                 onChange={(e) => setNotes(e.target.value)}
               />
               <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button className="btn bp" disabled={notesMutation.isPending} onClick={() => window.confirm('Save these notes?') && notesMutation.mutate()}>
+                <button className="btn bp" disabled={notesMutation.isPending} onClick={() => notesMutation.mutate()}>
                   {notesMutation.isPending ? 'Saving…' : 'Save Notes'}
                 </button>
                 <select
                   value={lead.status}
                   onChange={(e) => {
                     const status = e.target.value
-                    if (window.confirm(`Change status to "${STATUS_LABEL[status] ?? status}"?`)) statusMutation.mutate(status)
+                    confirmAction({ title: `Change status to "${STATUS_LABEL[status] ?? status}"?`, confirmText: 'Change' }).then((ok) => ok && statusMutation.mutate(status))
                   }}
                   disabled={statusMutation.isPending}
                   style={{ width: 160 }}

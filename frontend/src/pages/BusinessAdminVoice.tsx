@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { api, type ApiSuccess } from '@/lib/api'
 import { Shell } from '@/components/Shell'
+import { confirmAction } from '@/components/confirm'
 import { BUSINESS_NAV } from '@/lib/nav'
 
 interface Integration {
@@ -110,17 +111,11 @@ export function BusinessAdminVoice() {
   }
 
   const saveVoice = useMutation({
-    mutationFn: () => {
-      if (!window.confirm('Save voice configuration? This updates your live call routing setup.')) return Promise.reject('cancelled')
-      return api.put('/integrations/voice', { voice_provider: 'twilio', ...voice })
-    },
+    mutationFn: () => api.put('/integrations/voice', { voice_provider: 'twilio', ...voice }),
     onSuccess: refresh,
   })
   const saveWa = useMutation({
-    mutationFn: () => {
-      if (!window.confirm('Save WhatsApp configuration?')) return Promise.reject('cancelled')
-      return api.put('/integrations/whatsapp', { whatsapp_provider: 'twilio', ...wa })
-    },
+    mutationFn: () => api.put('/integrations/whatsapp', { whatsapp_provider: 'twilio', ...wa }),
     onSuccess: refresh,
   })
 
@@ -186,10 +181,10 @@ export function BusinessAdminVoice() {
           <button className="btn bp" disabled={saveVoice.isPending} onClick={() => saveVoice.mutate()}>{saveVoice.isPending ? 'Saving…' : 'Save'}</button>
           <button className="btn bs" disabled={vVerify.m.isPending} onClick={() => vVerify.m.mutate(undefined)}>Verify Credentials</button>
           <button className="btn bs" disabled={vSync.m.isPending} onClick={() => vSync.m.mutate(undefined)}>Sync Numbers</button>
-          <button className="btn bs" disabled={vWire.m.isPending} onClick={() => { if (window.confirm('Point your Twilio number webhook at this platform?')) vWire.m.mutate(undefined) }}>Wire Webhook</button>
+          <button className="btn bs" disabled={vWire.m.isPending} onClick={() => confirmAction({ title: 'Wire webhook?', message: 'Points your Twilio number webhook at this platform.', confirmText: 'Wire' }).then((ok) => ok && vWire.m.mutate(undefined))}>Wire Webhook</button>
           <button className="btn bs" onClick={fetchTwiml}>Generate TwiML</button>
           <input placeholder="+9715xxxxxxx" value={testCallTo} onChange={(e) => setTestCallTo(e.target.value)} style={{ width: 150 }} />
-          <button className="btn bok bsm" disabled={vCall.m.isPending || !testCallTo} onClick={() => { if (window.confirm(`Place a real test call to ${testCallTo}?`)) vCall.m.mutate({ to: testCallTo }) }}>Create Test Call</button>
+          <button className="btn bok bsm" disabled={vCall.m.isPending || !testCallTo} onClick={() => confirmAction({ title: 'Place test call?', message: `A real call will be placed to ${testCallTo}.`, confirmText: 'Call' }).then((ok) => ok && vCall.m.mutate({ to: testCallTo }))}>Create Test Call</button>
         </div>
         <TestPanel result={vVerify.result ?? vSync.result ?? vWire.result ?? vCall.result} pending={vVerify.m.isPending || vSync.m.isPending || vWire.m.isPending || vCall.m.isPending} />
         {twiml && <div className="fg" style={{ marginTop: 12 }}><label className="fl">Generated TwiML</label><textarea readOnly value={twiml} style={{ ...roField, minHeight: 80 }} /></div>}
@@ -237,7 +232,7 @@ export function BusinessAdminVoice() {
           <button className="btn bp" disabled={saveWa.isPending} onClick={() => saveWa.mutate()}>{saveWa.isPending ? 'Saving…' : 'Save'}</button>
           <button className="btn bs" disabled={wVerify.m.isPending} onClick={() => wVerify.m.mutate(undefined)}>Test Connection</button>
           <input placeholder="+9715xxxxxxx" value={testWaTo} onChange={(e) => setTestWaTo(e.target.value)} style={{ width: 150 }} />
-          <button className="btn bok bsm" disabled={wSend.m.isPending || !testWaTo} onClick={() => { if (window.confirm(`Send a real WhatsApp test message to ${testWaTo}?`)) wSend.m.mutate({ to: testWaTo }) }}>Send Test WhatsApp</button>
+          <button className="btn bok bsm" disabled={wSend.m.isPending || !testWaTo} onClick={() => confirmAction({ title: 'Send test message?', message: `A real WhatsApp message will be sent to ${testWaTo}.`, confirmText: 'Send' }).then((ok) => ok && wSend.m.mutate({ to: testWaTo }))}>Send Test WhatsApp</button>
         </div>
         <TestPanel result={wVerify.result ?? wSend.result} pending={wVerify.m.isPending || wSend.m.isPending} />
         <LogsTable logs={waLogs} />

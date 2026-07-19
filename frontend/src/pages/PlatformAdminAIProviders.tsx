@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type ApiSuccess } from '@/lib/api'
 import { Shell } from '@/components/Shell'
+import { confirmAction } from '@/components/confirm'
 import { PLATFORM_NAV } from '@/lib/nav'
 
 interface Model { model_id: string; name: string; input_cost_per_1m: number; output_cost_per_1m: number }
@@ -121,7 +122,7 @@ export function PlatformAdminAIProviders() {
                       .filter((m) => !addedModelNames(p).has(m.name))
                       .map((m) => (
                         <button key={m.name} className="btn bs bsm" disabled={addModel.isPending}
-                          onClick={() => window.confirm(`Add model "${m.name}" to ${p.name}?`) && addModel.mutate({ providerId: p.provider_id, name: m.name })}>
+                          onClick={() => addModel.mutate({ providerId: p.provider_id, name: m.name })}>
                           + {m.name}{m.input_cost_per_1m != null ? ` · $${m.input_cost_per_1m}/$${m.output_cost_per_1m} per 1M` : ' · rate unknown'}
                         </button>
                       ))}
@@ -142,7 +143,7 @@ export function PlatformAdminAIProviders() {
           <div className="fg" style={{ margin: 0 }}><label className="fl">Base URL (optional)</label><input placeholder="https://api.provider.com/v1" value={providerForm.base_url} onChange={(e) => setProviderForm((f) => ({ ...f, base_url: e.target.value }))} /></div>
         </div>
         <div style={{ marginTop: 14 }}>
-          <button className="btn bp" disabled={createProvider.isPending || !providerForm.name} onClick={() => window.confirm(`Add provider "${providerForm.name}"?`) && createProvider.mutate()}>
+          <button className="btn bp" disabled={createProvider.isPending || !providerForm.name} onClick={() => createProvider.mutate()}>
             {createProvider.isPending ? 'Adding…' : 'Add Provider'}
           </button>
         </div>
@@ -162,7 +163,7 @@ export function PlatformAdminAIProviders() {
                     value={t.ai_provider_model_id ?? ''}
                     onChange={(e) => {
                       const modelId = e.target.value
-                      if (modelId && window.confirm(`Change ${t.name ?? t.slug}'s AI model?`)) assignTenant.mutate({ tenantId: t.tenant_id, modelId })
+                      if (modelId) confirmAction({ title: `Change ${t.name ?? t.slug}'s AI model?`, confirmText: 'Change' }).then((ok) => ok && assignTenant.mutate({ tenantId: t.tenant_id, modelId }))
                     }}
                     style={{ width: 220 }}
                   >
@@ -221,7 +222,7 @@ export function PlatformAdminAIProviders() {
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <button className="btn bp" disabled={updateProvider.isPending} onClick={() => window.confirm(`Save changes to ${editingProvider.name}?`) && updateProvider.mutate()}>
+              <button className="btn bp" disabled={updateProvider.isPending} onClick={() => updateProvider.mutate()}>
                 {updateProvider.isPending ? 'Saving…' : 'Save Changes'}
               </button>
               <button className="btn bs" onClick={() => setEditingProvider(null)}>Cancel</button>

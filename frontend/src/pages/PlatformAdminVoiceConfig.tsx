@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { api, type ApiSuccess } from '@/lib/api'
 import { Shell } from '@/components/Shell'
+import { confirmAction } from '@/components/confirm'
 import { PLATFORM_NAV } from '@/lib/nav'
 
 interface VoiceProvider {
@@ -37,16 +38,13 @@ export function PlatformAdminVoiceConfig() {
   }
 
   const save = useMutation({
-    mutationFn: () => {
-      if (!window.confirm('Save voice provider configuration?')) return Promise.reject('cancelled')
-      return editing === 'new' ? api.post('/admin/voice-providers', form) : api.put(`/admin/voice-providers/${editing}`, form)
-    },
+    mutationFn: () => editing === 'new' ? api.post('/admin/voice-providers', form) : api.put(`/admin/voice-providers/${editing}`, form),
     onSuccess: () => { setEditing(null); refresh() },
   })
 
   const destroy = useMutation({
-    mutationFn: (id: string) => {
-      if (!window.confirm('Delete this voice provider?')) return Promise.reject('cancelled')
+    mutationFn: async (id: string) => {
+      if (!(await confirmAction({ title: 'Delete voice provider?', danger: true, confirmText: 'Delete' }))) return Promise.reject('cancelled')
       return api.delete(`/admin/voice-providers/${id}`)
     },
     onSuccess: refresh,

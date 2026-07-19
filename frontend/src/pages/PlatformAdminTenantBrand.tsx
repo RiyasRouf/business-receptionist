@@ -24,10 +24,7 @@ export function PlatformAdminTenantBrand() {
   }, [data])
 
   const save = useMutation({
-    mutationFn: () => {
-      if (!window.confirm("Save this tenant's branding? Updates their sidebar, logo colour, and login screen.")) return Promise.reject('cancelled')
-      return api.put(`/admin/tenants/${tenantId}/branding`, form)
-    },
+    mutationFn: () => api.put(`/admin/tenants/${tenantId}/branding`, form),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'branding'] })
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenants'] })

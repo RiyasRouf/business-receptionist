@@ -25,10 +25,7 @@ export function BusinessAdminBranding() {
   }, [data])
 
   const save = useMutation({
-    mutationFn: () => {
-      if (!window.confirm('Save branding changes? This updates your team\'s sidebar and login screen immediately.')) return Promise.reject('cancelled')
-      return api.put('/branding', form)
-    },
+    mutationFn: () => api.put('/branding', form),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['branding'] }),
   })
 

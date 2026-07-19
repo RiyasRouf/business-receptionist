@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { confirmAction } from '@/components/confirm'
 
 interface LogoUploaderProps {
   logoUrl: string | null
@@ -24,8 +25,8 @@ export function LogoUploader({ logoUrl, uploadUrl, deleteUrl, queryKey }: LogoUp
   })
 
   const remove = useMutation({
-    mutationFn: () => {
-      if (!window.confirm('Remove this logo?')) return Promise.reject('cancelled')
+    mutationFn: async () => {
+      if (!(await confirmAction({ title: 'Remove logo?', danger: true, confirmText: 'Remove' }))) return Promise.reject('cancelled')
 
       return api.delete(deleteUrl)
     },
