@@ -12,7 +12,12 @@ class RetrievalService
 {
     private const DEFAULT_TOP_K = 10;
 
-    private const DEFAULT_RELEVANCE_THRESHOLD = 0.7;
+    // 0.7 was calibrated against mock embeddings; gemini-embedding-001
+    // cosine similarity for clearly-relevant chunks lands ~0.55-0.65
+    // (verified on staging: bus-fee query vs bus-fee chunk = <0.7, all
+    // chunks filtered, injected=0). Per-tenant override still available
+    // via tenant_config kb.relevance_threshold.
+    private const DEFAULT_RELEVANCE_THRESHOLD = 0.5;
 
     public function __construct(
         private readonly EmbeddingProviderInterface $embedder,
