@@ -119,6 +119,7 @@ Route::prefix('v1')->group(function () {
                 Route::put('/integrations/whatsapp', [TenantIntegrationController::class, 'updateWhatsapp']);
                 Route::post('/integrations/voice/verify', [IntegrationTestController::class, 'verifyVoice']);
                 Route::post('/integrations/voice/test-call', [IntegrationTestController::class, 'testCall']);
+                Route::post('/integrations/voice/preview-voice', [IntegrationTestController::class, 'previewVoice']);
                 Route::post('/integrations/voice/sync-numbers', [IntegrationTestController::class, 'syncNumbers']);
                 Route::post('/integrations/voice/wire-webhook', [IntegrationTestController::class, 'wireWebhook']);
                 Route::get('/integrations/voice/twiml', [IntegrationTestController::class, 'twiml']);
@@ -161,6 +162,7 @@ Route::prefix('v1')->group(function () {
             Route::put('/admin/tenants/{tenantId}/integrations/whatsapp', [TenantIntegrationController::class, 'updateWhatsapp']);
             Route::post('/admin/tenants/{tenantId}/integrations/voice/verify', [IntegrationTestController::class, 'verifyVoice']);
             Route::post('/admin/tenants/{tenantId}/integrations/voice/test-call', [IntegrationTestController::class, 'testCall']);
+            Route::post('/admin/tenants/{tenantId}/integrations/voice/preview-voice', [IntegrationTestController::class, 'previewVoice']);
             Route::post('/admin/tenants/{tenantId}/integrations/voice/sync-numbers', [IntegrationTestController::class, 'syncNumbers']);
             Route::post('/admin/tenants/{tenantId}/integrations/voice/wire-webhook', [IntegrationTestController::class, 'wireWebhook']);
             Route::get('/admin/tenants/{tenantId}/integrations/voice/twiml', [IntegrationTestController::class, 'twiml']);

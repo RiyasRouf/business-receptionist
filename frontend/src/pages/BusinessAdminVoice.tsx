@@ -7,6 +7,31 @@ import { Shell } from '@/components/Shell'
 import { confirmAction } from '@/components/confirm'
 import { BUSINESS_NAV } from '@/lib/nav'
 
+// Mirrors TwilioService::VOICES (source of truth) — this is what callers
+// actually hear via <Say>.
+const VOICES: Record<string, string> = {
+  'Polly.Joanna': 'American English (female)',
+  'Polly.Joanna-Neural': 'American English (female, neural)',
+  'Polly.Matthew': 'American English (male)',
+  'Polly.Matthew-Neural': 'American English (male, neural)',
+  'Polly.Kendra-Neural': 'American English (female, neural, alt)',
+  'Polly.Joey-Neural': 'American English (male, neural, alt)',
+  'Polly.Salli': 'American English (female, alt)',
+  'Polly.Justin': 'American English (male, child)',
+  'Polly.Amy-Neural': 'British English (female, neural)',
+  'Polly.Brian-Neural': 'British English (male, neural)',
+  'Polly.Emma-Neural': 'British English (female, neural)',
+  'Polly.Arthur-Neural': 'British English (male, neural, alt)',
+  'Polly.Kajal-Neural': 'Indian English (female, neural)',
+  'Polly.Aditi': 'Indian English (female)',
+  'Polly.Olivia-Neural': 'Australian English (female, neural)',
+  'Polly.Russell': 'Australian English (male)',
+  'Polly.Niamh-Neural': 'Irish English (female, neural)',
+  'Polly.Geraint': 'Welsh English (male)',
+  'Polly.Ayanda-Neural': 'South African English (female, neural)',
+  'Polly.Aria-Neural': 'New Zealand English (female, neural)',
+}
+
 interface Integration {
   voice_provider: string | null; voice_account_sid: string | null; voice_phone_number: string | null
   voice_api_key: string | null; voice_app_sid: string | null; voice_region: string | null
@@ -123,6 +148,7 @@ export function BusinessAdminVoice() {
   const vCall = useTest('/integrations/voice/test-call', refresh)
   const vSync = useTest('/integrations/voice/sync-numbers', refresh)
   const vWire = useTest('/integrations/voice/wire-webhook', refresh)
+  const vPreview = useTest('/integrations/voice/preview-voice', refresh)
   const wVerify = useTest('/integrations/whatsapp/verify', refresh)
   const wSend = useTest('/integrations/whatsapp/test-send', refresh)
 
@@ -158,14 +184,16 @@ export function BusinessAdminVoice() {
           <div className="fg"><label className="fl">Phone Number</label><input placeholder="+14155551234" value={voice.voice_phone_number} onChange={(e) => setVoice((f) => ({ ...f, voice_phone_number: e.target.value }))} /></div>
           <div className="fg"><label className="fl">Speech Timeout (s)</label><input type="number" min={1} max={60} value={voice.voice_speech_timeout} onChange={(e) => setVoice((f) => ({ ...f, voice_speech_timeout: Number(e.target.value) }))} /></div>
           <div className="fg"><label className="fl">AI Voice Accent</label>
-            <select value={voice.voice_tts_voice} onChange={(e) => setVoice((f) => ({ ...f, voice_tts_voice: e.target.value }))}>
-              <option value="Polly.Joanna">American (female)</option>
-              <option value="Polly.Matthew">American (male)</option>
-              <option value="Polly.Kajal-Neural">Indian English (female, neural)</option>
-              <option value="Polly.Aditi">Indian English (female)</option>
-              <option value="Polly.Brian-Neural">British English (male, neural)</option>
-              <option value="Polly.Emma-Neural">British English (female, neural)</option>
-            </select></div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select value={voice.voice_tts_voice} onChange={(e) => setVoice((f) => ({ ...f, voice_tts_voice: e.target.value }))} style={{ flex: 1 }}>
+                {Object.entries(VOICES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              </select>
+              <button type="button" className="btn bs bsm" disabled={vPreview.m.isPending || !testCallTo} onClick={() => confirmAction({ title: 'Preview this voice?', message: `A real call will be placed to ${testCallTo}.`, confirmText: 'Call' }).then((ok) => ok && vPreview.m.mutate({ to: testCallTo, voice: voice.voice_tts_voice }))}>
+                {vPreview.m.isPending ? 'Calling…' : 'Test Voice'}
+              </button>
+            </div>
+            <div className="cs" style={{ margin: '4px 0 0' }}>Uses the test-call number below</div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: 18, margin: '4px 0 14px', flexWrap: 'wrap' }}>

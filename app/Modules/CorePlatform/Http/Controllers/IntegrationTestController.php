@@ -68,6 +68,17 @@ class IntegrationTestController
         return $this->respond($result);
     }
 
+    public function previewVoice(Request $request, ?string $tenantId = null): JsonResponse
+    {
+        $validated = $request->validate([
+            'to' => ['required', 'string', 'max:32'],
+            'voice' => ['required', 'string', 'in:'.implode(',', array_keys(\App\Modules\CorePlatform\Services\Providers\TwilioService::VOICES))],
+        ]);
+        $i = $this->integration($request, $tenantId);
+
+        return $this->respond($this->twilio->previewVoice($i, $validated['to'], $validated['voice']));
+    }
+
     public function sendTestWhatsapp(Request $request, ?string $tenantId = null): JsonResponse
     {
         $validated = $request->validate([

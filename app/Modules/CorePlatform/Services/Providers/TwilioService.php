@@ -176,6 +176,24 @@ class TwilioService
             fn ($c, $sid) => $c->asForm()->post("/Accounts/{$sid}/Calls.json", $payload));
     }
 
+    /**
+     * Places a real call reading a fixed sample phrase in the given
+     * voice — static inline TwiML, no engine/webhook round-trip, so it
+     * previews any voice regardless of what's saved.
+     */
+    public function previewVoice(TenantIntegration $i, string $to, string $voice): array
+    {
+        $voice = htmlspecialchars($voice, ENT_XML1);
+        $twiml = '<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="'.$voice.'">'
+            .htmlspecialchars(self::PREVIEW_TEXT, ENT_XML1).'</Say></Response>';
+
+        return $this->run('voice', 'preview_voice', $i, fn ($c, $sid) => $c->asForm()->post("/Accounts/{$sid}/Calls.json", [
+            'To' => $to,
+            'From' => $i->voice_phone_number,
+            'Twiml' => $twiml,
+        ]));
+    }
+
     public function listNumbers(TenantIntegration $i): array
     {
         $result = $this->run('voice', 'sync_numbers', $i,
@@ -222,13 +240,34 @@ class TwilioService
     // test-only path until Media Streams + Deepgram TTS is wired into the
     // live call audio. Neural where available for natural pronunciation.
     public const VOICES = [
-        'Polly.Joanna' => 'American (female)',
-        'Polly.Matthew' => 'American (male)',
-        'Polly.Kajal-Neural' => 'Indian English (female, neural)',
-        'Polly.Aditi' => 'Indian English (female)',
+        // American English
+        'Polly.Joanna' => 'American English (female)',
+        'Polly.Joanna-Neural' => 'American English (female, neural)',
+        'Polly.Matthew' => 'American English (male)',
+        'Polly.Matthew-Neural' => 'American English (male, neural)',
+        'Polly.Kendra-Neural' => 'American English (female, neural, alt)',
+        'Polly.Joey-Neural' => 'American English (male, neural, alt)',
+        'Polly.Salli' => 'American English (female)',
+        'Polly.Justin' => 'American English (male, child)',
+        // British English
+        'Polly.Amy-Neural' => 'British English (female, neural)',
         'Polly.Brian-Neural' => 'British English (male, neural)',
         'Polly.Emma-Neural' => 'British English (female, neural)',
+        'Polly.Arthur-Neural' => 'British English (male, neural, alt)',
+        // Indian English
+        'Polly.Kajal-Neural' => 'Indian English (female, neural)',
+        'Polly.Aditi' => 'Indian English (female)',
+        // Australian English
+        'Polly.Olivia-Neural' => 'Australian English (female, neural)',
+        'Polly.Russell' => 'Australian English (male)',
+        // Irish, Welsh, South African, New Zealand English
+        'Polly.Niamh-Neural' => 'Irish English (female, neural)',
+        'Polly.Geraint' => 'Welsh English (male)',
+        'Polly.Ayanda-Neural' => 'South African English (female, neural)',
+        'Polly.Aria-Neural' => 'New Zealand English (female, neural)',
     ];
+
+    private const PREVIEW_TEXT = "Hello! This is a preview of my voice. I'm the AI receptionist for your business, ready to answer calls and help your customers.";
 
     public function generateTwiml(TenantIntegration $i): string
     {
