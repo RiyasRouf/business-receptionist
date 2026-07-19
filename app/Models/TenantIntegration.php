@@ -22,7 +22,7 @@ class TenantIntegration extends Model
         'voice_api_key', 'voice_api_secret', 'voice_app_sid', 'voice_region',
         'voice_recording_enabled', 'voice_speech_timeout', 'voice_machine_detection',
         'voice_media_streams_enabled', 'voice_stream_url', 'voice_last_tested_at',
-        'voice_latency_ms', 'voice_last_error',
+        'voice_latency_ms', 'voice_last_error', 'voice_tts_voice',
         'whatsapp_number', 'whatsapp_display_name', 'whatsapp_phone_number_id', 'whatsapp_token',
         'whatsapp_greeting', 'whatsapp_status',
         'whatsapp_provider', 'whatsapp_account_sid', 'whatsapp_auth_token', 'whatsapp_api_key',

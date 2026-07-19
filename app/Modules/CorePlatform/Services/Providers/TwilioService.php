@@ -217,9 +217,23 @@ class TwilioService
         });
     }
 
+    // Twilio <Say> voice — this is what callers actually hear; Deepgram's
+    // tts_voice config (platform_voice_providers) is a separate, disconnected
+    // test-only path until Media Streams + Deepgram TTS is wired into the
+    // live call audio. Neural where available for natural pronunciation.
+    public const VOICES = [
+        'Polly.Joanna' => 'American (female)',
+        'Polly.Matthew' => 'American (male)',
+        'Polly.Kajal-Neural' => 'Indian English (female, neural)',
+        'Polly.Aditi' => 'Indian English (female)',
+        'Polly.Brian-Neural' => 'British English (male, neural)',
+        'Polly.Emma-Neural' => 'British English (female, neural)',
+    ];
+
     public function generateTwiml(TenantIntegration $i): string
     {
         $greeting = htmlspecialchars($i->fallback_message ?: 'Hello. This is a test call from your AI receptionist. Your voice integration is working.', ENT_XML1);
+        $voice = htmlspecialchars($i->voice_tts_voice ?: 'Polly.Joanna', ENT_XML1);
 
         $stream = '';
         if ($i->voice_media_streams_enabled && $i->voice_stream_url) {
@@ -227,6 +241,6 @@ class TwilioService
             $stream = "<Connect><Stream url=\"{$url}\"/></Connect>";
         }
 
-        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"Polly.Joanna\">{$greeting}</Say>{$stream}</Response>";
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Say voice=\"{$voice}\">{$greeting}</Say>{$stream}</Response>";
     }
 }

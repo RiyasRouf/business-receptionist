@@ -98,9 +98,11 @@ class TwilioWebhookController
             ->header('Content-Type', 'text/xml');
     }
 
-    private function say(string $text): string
+    private function say(string $text, ?TenantIntegration $integration = null): string
     {
-        return '<Say voice="Polly.Joanna">'.htmlspecialchars($text, ENT_XML1).'</Say>';
+        $voice = htmlspecialchars($integration?->voice_tts_voice ?: 'Polly.Joanna', ENT_XML1);
+
+        return '<Say voice="'.$voice.'">'.htmlspecialchars($text, ENT_XML1).'</Say>';
     }
 
     private function gather(TenantIntegration $integration, string $inner = ''): string
@@ -110,7 +112,7 @@ class TwilioWebhookController
         return '<Gather input="speech" action="'.url('/api/v1/twilio/voice/turn').'" method="POST"'
             .' speechTimeout="'.$timeout.'" language="en-US">'.$inner.'</Gather>'
             // Reached only if the caller stays silent through the Gather.
-            .$this->say('Thank you for calling. Goodbye.').'<Hangup/>';
+            .$this->say('Thank you for calling. Goodbye.', $integration).'<Hangup/>';
     }
 
     private function sessionForCall(string $callSid): ?Session
@@ -143,7 +145,7 @@ class TwilioWebhookController
         $greeting = $integration->fallback_message
             ?: 'Hello! Thank you for calling. I am the AI receptionist. How can I help you today?';
 
-        return $this->twiml($this->gather($integration, $this->say($greeting)));
+        return $this->twiml($this->gather($integration, $this->say($greeting, $integration)));
     }
 
     /** One speech turn: Twilio STT result in, engine answer out, keep listening. */
@@ -164,7 +166,7 @@ class TwilioWebhookController
         $speech = trim((string) $request->input('SpeechResult', ''));
 
         if ($speech === '') {
-            return $this->twiml($this->gather($integration, $this->say("Sorry, I didn't catch that. Could you repeat?")));
+            return $this->twiml($this->gather($integration, $this->say("Sorry, I didn't catch that. Could you repeat?", $integration)));
         }
 
         $result = $this->engine->processTurn($session, $speech);
@@ -175,10 +177,10 @@ class TwilioWebhookController
             $this->engine->completeSession($session);
             Redis::del('twilio:call:'.$request->input('CallSid'));
 
-            return $this->twiml($this->say($result->response).$this->say('Goodbye!').'<Hangup/>');
+            return $this->twiml($this->say($result->response, $integration).$this->say('Goodbye!', $integration).'<Hangup/>');
         }
 
-        return $this->twiml($this->gather($integration, $this->say($result->response)));
+        return $this->twiml($this->gather($integration, $this->say($result->response, $integration)));
     }
 
     /** Call status lifecycle — completing an active session ends it cleanly. */

@@ -10,7 +10,7 @@ import { BUSINESS_NAV } from '@/lib/nav'
 interface Integration {
   voice_provider: string | null; voice_account_sid: string | null; voice_phone_number: string | null
   voice_api_key: string | null; voice_app_sid: string | null; voice_region: string | null
-  voice_recording_enabled: boolean; voice_speech_timeout: number | null; voice_machine_detection: boolean
+  voice_recording_enabled: boolean; voice_speech_timeout: number | null; voice_machine_detection: boolean; voice_tts_voice: string
   voice_media_streams_enabled: boolean; voice_stream_url: string | null
   voice_status: string; voice_last_tested_at: string | null; voice_latency_ms: number | null; voice_last_error: string | null
   voice_auth_token_set: boolean; voice_api_secret_set: boolean
@@ -93,7 +93,7 @@ export function BusinessAdminVoice() {
   const { data: voiceLogs } = useQuery({ queryKey: ['integrations', 'voice-logs'], queryFn: async () => (await api.get<ApiSuccess<TestLog[]>>('/integrations/voice/logs')).data.data })
   const { data: waLogs } = useQuery({ queryKey: ['integrations', 'wa-logs'], queryFn: async () => (await api.get<ApiSuccess<TestLog[]>>('/integrations/whatsapp/logs')).data.data })
 
-  const [voice, setVoice] = useState({ voice_account_sid: '', voice_auth_token: '', voice_api_key: '', voice_api_secret: '', voice_app_sid: '', voice_region: 'us1', voice_phone_number: '', voice_recording_enabled: false, voice_speech_timeout: 5, voice_machine_detection: false, voice_media_streams_enabled: false, voice_stream_url: '', call_forwarding_type: 'Always Forward', business_hours: '', fallback_message: '' })
+  const [voice, setVoice] = useState({ voice_account_sid: '', voice_auth_token: '', voice_api_key: '', voice_api_secret: '', voice_app_sid: '', voice_region: 'us1', voice_phone_number: '', voice_recording_enabled: false, voice_speech_timeout: 5, voice_machine_detection: false, voice_media_streams_enabled: false, voice_stream_url: '', voice_tts_voice: 'Polly.Joanna', call_forwarding_type: 'Always Forward', business_hours: '', fallback_message: '' })
   const [wa, setWa] = useState({ whatsapp_account_sid: '', whatsapp_auth_token: '', whatsapp_api_key: '', whatsapp_api_secret: '', whatsapp_messaging_service_sid: '', whatsapp_number: '', whatsapp_display_name: '', whatsapp_sandbox: true, whatsapp_media_enabled: true, whatsapp_interactive_enabled: true, whatsapp_greeting: '', whatsapp_status_callback_url: '' })
   const [testCallTo, setTestCallTo] = useState('')
   const [testWaTo, setTestWaTo] = useState('')
@@ -102,7 +102,7 @@ export function BusinessAdminVoice() {
   const i = data?.integration
   useEffect(() => {
     if (!i) return
-    setVoice((f) => ({ ...f, voice_account_sid: i.voice_account_sid ?? '', voice_api_key: i.voice_api_key ?? '', voice_app_sid: i.voice_app_sid ?? '', voice_region: i.voice_region ?? 'us1', voice_phone_number: i.voice_phone_number ?? '', voice_recording_enabled: i.voice_recording_enabled, voice_speech_timeout: i.voice_speech_timeout ?? 5, voice_machine_detection: i.voice_machine_detection, voice_media_streams_enabled: i.voice_media_streams_enabled, voice_stream_url: i.voice_stream_url ?? '', call_forwarding_type: i.call_forwarding_type ?? 'Always Forward', business_hours: i.business_hours ?? '', fallback_message: i.fallback_message ?? '' }))
+    setVoice((f) => ({ ...f, voice_account_sid: i.voice_account_sid ?? '', voice_api_key: i.voice_api_key ?? '', voice_app_sid: i.voice_app_sid ?? '', voice_region: i.voice_region ?? 'us1', voice_phone_number: i.voice_phone_number ?? '', voice_recording_enabled: i.voice_recording_enabled, voice_speech_timeout: i.voice_speech_timeout ?? 5, voice_machine_detection: i.voice_machine_detection, voice_media_streams_enabled: i.voice_media_streams_enabled, voice_stream_url: i.voice_stream_url ?? '', voice_tts_voice: i.voice_tts_voice ?? 'Polly.Joanna', call_forwarding_type: i.call_forwarding_type ?? 'Always Forward', business_hours: i.business_hours ?? '', fallback_message: i.fallback_message ?? '' }))
     setWa((f) => ({ ...f, whatsapp_account_sid: i.whatsapp_account_sid ?? '', whatsapp_messaging_service_sid: i.whatsapp_messaging_service_sid ?? '', whatsapp_number: i.whatsapp_number ?? '', whatsapp_display_name: i.whatsapp_display_name ?? '', whatsapp_sandbox: i.whatsapp_sandbox, whatsapp_media_enabled: i.whatsapp_media_enabled, whatsapp_interactive_enabled: i.whatsapp_interactive_enabled, whatsapp_greeting: i.whatsapp_greeting ?? '', whatsapp_status_callback_url: i.whatsapp_status_callback_url ?? '' }))
   }, [i])
 
@@ -157,6 +157,15 @@ export function BusinessAdminVoice() {
             </select></div>
           <div className="fg"><label className="fl">Phone Number</label><input placeholder="+14155551234" value={voice.voice_phone_number} onChange={(e) => setVoice((f) => ({ ...f, voice_phone_number: e.target.value }))} /></div>
           <div className="fg"><label className="fl">Speech Timeout (s)</label><input type="number" min={1} max={60} value={voice.voice_speech_timeout} onChange={(e) => setVoice((f) => ({ ...f, voice_speech_timeout: Number(e.target.value) }))} /></div>
+          <div className="fg"><label className="fl">AI Voice Accent</label>
+            <select value={voice.voice_tts_voice} onChange={(e) => setVoice((f) => ({ ...f, voice_tts_voice: e.target.value }))}>
+              <option value="Polly.Joanna">American (female)</option>
+              <option value="Polly.Matthew">American (male)</option>
+              <option value="Polly.Kajal-Neural">Indian English (female, neural)</option>
+              <option value="Polly.Aditi">Indian English (female)</option>
+              <option value="Polly.Brian-Neural">British English (male, neural)</option>
+              <option value="Polly.Emma-Neural">British English (female, neural)</option>
+            </select></div>
         </div>
 
         <div style={{ display: 'flex', gap: 18, margin: '4px 0 14px', flexWrap: 'wrap' }}>

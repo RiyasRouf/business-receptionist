@@ -76,6 +76,7 @@ class TenantIntegrationController
             'voice_machine_detection' => ['sometimes', 'boolean'],
             'voice_media_streams_enabled' => ['sometimes', 'boolean'],
             'voice_stream_url' => ['sometimes', 'nullable', 'string', 'max:500', 'starts_with:wss://'],
+            'voice_tts_voice' => ['sometimes', 'string', 'in:'.implode(',', array_keys(\App\Modules\CorePlatform\Services\Providers\TwilioService::VOICES))],
             'call_forwarding_type' => ['sometimes', 'nullable', 'string', 'max:64'],
             'business_hours' => ['sometimes', 'nullable', 'string', 'max:128'],
             'fallback_message' => ['sometimes', 'nullable', 'string', 'max:1000'],
