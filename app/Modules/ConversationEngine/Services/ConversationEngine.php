@@ -95,9 +95,17 @@ class ConversationEngine
         $sanitised = $this->guardrails->sanitizeInput($rawInput);
         $this->appendTurn($session, 'user', $sanitised);
 
-        // If mid lead-capture, treat this turn as the answer to the
-        // field we're currently awaiting rather than reclassifying intent.
+        // If mid lead-capture, treat this turn as the answer to the field
+        // we're currently awaiting — UNLESS the caller asked a new question
+        // instead of answering (real bug found in production: a caller
+        // asking "what about transport?" got that whole sentence stored
+        // verbatim as their name, then read back in the closing
+        // confirmation). Answer the question, then re-ask the same field.
         if (($meta['state'] ?? null) === ConversationState::LeadCapture->value && ($meta['awaiting_field'] ?? null)) {
+            if ($this->looksLikeQuestion($sanitised)) {
+                return $this->answerQuestionDuringLeadCapture($session, $meta, $sanitised);
+            }
+
             return $this->handleLeadFieldAnswer($session, $meta, $sanitised);
         }
 
@@ -194,6 +202,61 @@ class ConversationEngine
         $this->appendTurn($session, 'assistant', $this->fieldPrompt($nextField));
 
         return new TurnResult($prompt, ConversationState::LeadCapture, ! $postCheck->passed, $postCheck->passed ? null : 'post');
+    }
+
+    private function looksLikeQuestion(string $input): bool
+    {
+        if (str_contains($input, '?')) {
+            return true;
+        }
+
+        return (bool) preg_match('/^\s*(what|how|when|where|why|who|which|can you|could you|do you|does|is there|are there|will you|would you)\b/i', $input);
+    }
+
+    /**
+     * Answers a question asked mid-lead-capture from the KB (same
+     * grounding rules as handleEnquiry) then re-prompts the SAME pending
+     * field — does not advance lead capture or lose awaiting_field.
+     */
+    private function answerQuestionDuringLeadCapture(Session $session, array $meta, string $input): TurnResult
+    {
+        $startedAt = microtime(true);
+        $fallbackPhrase = "I'm not able to confirm that — I'll have our team follow up with you directly.";
+
+        $retrieval = $this->retrieval->retrieveDetailed($session->tenant_id, $input, 5);
+        $kbMatched = $retrieval->chunks !== [];
+        $context = $kbMatched ? "Knowledge base context:\n".implode("\n", array_column($retrieval->chunks, 'content')) : '';
+
+        $tenant = \App\Models\Tenant::find($session->tenant_id);
+        $businessName = $tenant?->brand_name ?: ($tenant?->name ?: 'the business');
+
+        $systemPrompt = "You are the AI receptionist for {$businessName} on a {$session->channel} conversation, mid-way through collecting the caller's contact details. They just asked a question instead of answering — answer it briefly (2 sentences or fewer) using ONLY the knowledge base context. "
+            .'If the context does not cover it, reply with exactly the word '.GuardrailService::CANNOT_CONFIRM.' and nothing else. No lists or markdown.';
+
+        $historyKey = "tenant:{$session->tenant_id}:session:{$session->session_id}:turns";
+        $history = array_map(
+            fn (string $json) => json_decode($json, true),
+            Redis::lrange($historyKey, 0, -2)
+        );
+
+        $messages = array_values(array_filter([
+            ['role' => 'system', 'content' => $systemPrompt],
+            $context !== '' ? ['role' => 'system', 'content' => $context] : null,
+            ...$history,
+            ['role' => 'user', 'content' => $input],
+        ]));
+
+        $aiResponse = $this->ai->complete($messages);
+        $postCheck = $this->guardrails->postCheck($aiResponse->content, $kbMatched, $fallbackPhrase);
+        $answer = $postCheck->passed ? $aiResponse->content : $postCheck->fallbackResponse;
+        $answer = $this->guardrails->redactPii($answer);
+
+        $this->recordLineage($session, $aiResponse, $retrieval, $postCheck, $startedAt);
+
+        $response = $answer.' '.$this->fieldPrompt(LeadField::from($meta['awaiting_field']));
+        $this->appendTurn($session, 'assistant', $response);
+
+        return new TurnResult($response, ConversationState::LeadCapture, ! $postCheck->passed, $postCheck->passed ? null : 'post');
     }
 
     private function handleLeadFieldAnswer(Session $session, array $meta, string $input): TurnResult
