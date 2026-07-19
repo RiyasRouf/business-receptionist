@@ -33,9 +33,12 @@ class TenantIntegrationController
         $tenant = Tenant::find($tid);
 
         return $this->success([
-            'integration' => $integration,
-            'voice_webhook_url' => url("/api/v1/voice/webhook?tenant={$tenant?->slug}"),
-            'whatsapp_webhook_url' => url("/api/v1/whatsapp/webhook?tenant={$tenant?->slug}"),
+            'integration' => $integration->toApi(),
+            'voice_webhook_url' => url('/api/v1/twilio/voice'),
+            'voice_status_callback_url' => url('/api/v1/twilio/status'),
+            'recording_callback_url' => url('/api/v1/twilio/recording'),
+            'whatsapp_webhook_url' => url('/api/v1/twilio/whatsapp/inbound'),
+            'whatsapp_status_callback_url' => url('/api/v1/twilio/whatsapp/status'),
         ]);
     }
 
@@ -63,11 +66,27 @@ class TenantIntegrationController
             'voice_provider' => ['required', 'string', 'in:twilio,vonage'],
             'voice_account_sid' => ['sometimes', 'nullable', 'string', 'max:255'],
             'voice_auth_token' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'voice_api_key' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'voice_api_secret' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'voice_app_sid' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'voice_region' => ['sometimes', 'nullable', 'string', 'in:us1,ie1,au1'],
             'voice_phone_number' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'voice_recording_enabled' => ['sometimes', 'boolean'],
+            'voice_speech_timeout' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:60'],
+            'voice_machine_detection' => ['sometimes', 'boolean'],
+            'voice_media_streams_enabled' => ['sometimes', 'boolean'],
+            'voice_stream_url' => ['sometimes', 'nullable', 'string', 'max:500', 'starts_with:wss://'],
             'call_forwarding_type' => ['sometimes', 'nullable', 'string', 'max:64'],
             'business_hours' => ['sometimes', 'nullable', 'string', 'max:128'],
             'fallback_message' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ]);
+
+        // Blank secrets mean "keep existing" — never blank out on save.
+        foreach (['voice_auth_token', 'voice_api_key', 'voice_api_secret'] as $secret) {
+            if (blank($validated[$secret] ?? null)) {
+                unset($validated[$secret]);
+            }
+        }
 
         $validated['voice_status'] = 'configured';
 
@@ -76,7 +95,7 @@ class TenantIntegrationController
 
         $this->audit($request, 'integration.voice_updated', 'tenant_integration', $integration->integration_id, ['voice_provider' => $validated['voice_provider']], $tid);
 
-        return $this->success($integration);
+        return $this->success($integration->toApi());
     }
 
     public function updateWhatsapp(Request $request, ?string $tenantId = null): JsonResponse
@@ -84,20 +103,36 @@ class TenantIntegrationController
         $tid = $this->tenantId($request, $tenantId);
 
         $validated = $request->validate([
+            'whatsapp_provider' => ['sometimes', 'string', 'in:twilio,meta,360dialog'],
+            'whatsapp_account_sid' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'whatsapp_auth_token' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'whatsapp_api_key' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'whatsapp_api_secret' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'whatsapp_messaging_service_sid' => ['sometimes', 'nullable', 'string', 'max:255'],
             'whatsapp_number' => ['sometimes', 'nullable', 'string', 'max:64'],
             'whatsapp_display_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'whatsapp_phone_number_id' => ['sometimes', 'nullable', 'string', 'max:255'],
             'whatsapp_token' => ['sometimes', 'nullable', 'string', 'max:500'],
             'whatsapp_greeting' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'whatsapp_sandbox' => ['sometimes', 'boolean'],
+            'whatsapp_media_enabled' => ['sometimes', 'boolean'],
+            'whatsapp_interactive_enabled' => ['sometimes', 'boolean'],
+            'whatsapp_status_callback_url' => ['sometimes', 'nullable', 'string', 'max:500', 'url'],
         ]);
 
-        $validated['whatsapp_status'] = 'sandbox';
+        foreach (['whatsapp_auth_token', 'whatsapp_api_key', 'whatsapp_api_secret', 'whatsapp_token'] as $secret) {
+            if (blank($validated[$secret] ?? null)) {
+                unset($validated[$secret]);
+            }
+        }
+
+        $validated['whatsapp_status'] = ($validated['whatsapp_sandbox'] ?? true) ? 'sandbox' : 'production';
 
         $integration = TenantIntegration::firstOrCreate(['tenant_id' => $tid]);
         $integration->update($validated);
 
         $this->audit($request, 'integration.whatsapp_updated', 'tenant_integration', $integration->integration_id, [], $tid);
 
-        return $this->success($integration);
+        return $this->success($integration->toApi());
     }
 }

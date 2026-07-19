@@ -1,105 +1,246 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { api, type ApiSuccess } from '@/lib/api'
 import { Shell } from '@/components/Shell'
 import { BUSINESS_NAV } from '@/lib/nav'
 
 interface Integration {
   voice_provider: string | null; voice_account_sid: string | null; voice_phone_number: string | null
-  voice_status: string; call_forwarding_type: string | null; business_hours: string | null; fallback_message: string | null
-  whatsapp_number: string | null; whatsapp_display_name: string | null; whatsapp_phone_number_id: string | null
-  whatsapp_greeting: string | null; whatsapp_status: string
+  voice_api_key: string | null; voice_app_sid: string | null; voice_region: string | null
+  voice_recording_enabled: boolean; voice_speech_timeout: number | null; voice_machine_detection: boolean
+  voice_media_streams_enabled: boolean; voice_stream_url: string | null
+  voice_status: string; voice_last_tested_at: string | null; voice_latency_ms: number | null; voice_last_error: string | null
+  voice_auth_token_set: boolean; voice_api_secret_set: boolean
+  call_forwarding_type: string | null; business_hours: string | null; fallback_message: string | null
+  whatsapp_provider: string; whatsapp_account_sid: string | null; whatsapp_messaging_service_sid: string | null
+  whatsapp_number: string | null; whatsapp_display_name: string | null
+  whatsapp_sandbox: boolean; whatsapp_media_enabled: boolean; whatsapp_interactive_enabled: boolean
+  whatsapp_status: string; whatsapp_last_tested_at: string | null; whatsapp_latency_ms: number | null; whatsapp_last_error: string | null
+  whatsapp_auth_token_set: boolean; whatsapp_api_secret_set: boolean
+  whatsapp_greeting: string | null; whatsapp_status_callback_url: string | null
 }
-interface IntegrationResponse { integration: Integration; voice_webhook_url: string; whatsapp_webhook_url: string }
+interface IntegrationResponse {
+  integration: Integration
+  voice_webhook_url: string; voice_status_callback_url: string; recording_callback_url: string
+  whatsapp_webhook_url: string; whatsapp_status_callback_url: string
+}
+interface TestResult { ok: boolean; status: string; latency_ms: number | null; data: unknown }
+interface TestLog { log_id: string; action: string; ok: boolean; latency_ms: number | null; detail_json: { status?: string; error?: string | null } | null; created_at: string }
 
 async function fetchIntegration(): Promise<IntegrationResponse> {
   return (await api.get<ApiSuccess<IntegrationResponse>>('/integrations')).data.data
+}
+
+function statusBadge(status: string | undefined, lastError: string | null | undefined) {
+  if (lastError) return <span className="bdg b-er">✗ {lastError.slice(0, 60)}</span>
+  if (status === 'configured' || status === 'production') return <span className="bdg b-ok">✓ {status === 'production' ? 'Production Active' : 'Configured'}</span>
+  if (status === 'sandbox') return <span className="bdg b-wn">Sandbox Active</span>
+  return <span className="bdg b-gy">Not Configured</span>
+}
+
+function TestPanel({ result, pending }: { result: TestResult | null; pending: boolean }) {
+  if (pending) return <div className="info-box" style={{ marginTop: 12, marginBottom: 0 }}><span>⏳</span><span>Testing against provider…</span></div>
+  if (!result) return null
+  return (
+    <div className={result.ok ? 'info-box' : 'warn-box'} style={{ marginTop: 12, marginBottom: 0 }}>
+      <span>{result.ok ? '✅' : '⚠️'}</span>
+      <span>
+        <b>{result.ok ? 'Connected' : ({ authentication_failed: 'Authentication Failed', invalid_sid: 'Invalid SID', invalid_token: 'Invalid Token', missing_credentials: 'Missing credentials — save SID + token first', unreachable: 'Provider unreachable', number_not_on_account: 'Phone number not found on this account' }[result.status] ?? result.status)}</b>
+        {result.latency_ms != null && <> · {result.latency_ms}ms</>}
+        {result.ok && result.data != null && <> · <code style={{ fontSize: 10 }}>{JSON.stringify(result.data).slice(0, 200)}</code></>}
+      </span>
+    </div>
+  )
+}
+
+function LogsTable({ logs }: { logs: TestLog[] | undefined }) {
+  if (!logs?.length) return null
+  return (
+    <div className="tw" style={{ marginTop: 14 }}><table>
+      <thead><tr><th>Time</th><th>Action</th><th>Result</th><th>Latency</th><th>Detail</th></tr></thead>
+      <tbody>{logs.slice(0, 8).map((l) => (
+        <tr key={l.log_id}>
+          <td>{new Date(l.created_at).toLocaleString()}</td><td>{l.action}</td>
+          <td>{l.ok ? <span className="bdg b-ok">OK</span> : <span className="bdg b-er">Fail</span>}</td>
+          <td>{l.latency_ms != null ? `${l.latency_ms}ms` : '—'}</td>
+          <td style={{ fontSize: 11, color: 'var(--t2)' }}>{l.detail_json?.error ?? l.detail_json?.status ?? '—'}</td>
+        </tr>
+      ))}</tbody>
+    </table></div>
+  )
+}
+
+function useTest(url: string, onDone: () => void) {
+  const [result, setResult] = useState<TestResult | null>(null)
+  const m = useMutation({
+    mutationFn: async (body?: Record<string, unknown>) => (await api.post<ApiSuccess<TestResult>>(url, body ?? {})).data.data,
+    onSuccess: (r) => { setResult(r); onDone() },
+    onError: (e) => {
+      setResult({ ok: false, status: isAxiosError(e) ? (e.response?.data?.message ?? 'request_failed') : 'request_failed', latency_ms: null, data: null })
+      onDone()
+    },
+  })
+  return { result, m }
 }
 
 export function BusinessAdminVoice() {
   const { pathname } = useLocation()
   const queryClient = useQueryClient()
   const { data } = useQuery({ queryKey: ['integrations'], queryFn: fetchIntegration })
+  const { data: voiceLogs } = useQuery({ queryKey: ['integrations', 'voice-logs'], queryFn: async () => (await api.get<ApiSuccess<TestLog[]>>('/integrations/voice/logs')).data.data })
+  const { data: waLogs } = useQuery({ queryKey: ['integrations', 'wa-logs'], queryFn: async () => (await api.get<ApiSuccess<TestLog[]>>('/integrations/whatsapp/logs')).data.data })
 
-  const [provider, setProvider] = useState<'twilio' | 'vonage'>('twilio')
-  const [voice, setVoice] = useState({ voice_account_sid: '', voice_auth_token: '', voice_phone_number: '', call_forwarding_type: 'Always Forward', business_hours: '', fallback_message: '' })
-  const [wa, setWa] = useState({ whatsapp_number: '', whatsapp_display_name: '', whatsapp_phone_number_id: '', whatsapp_token: '', whatsapp_greeting: '' })
+  const [voice, setVoice] = useState({ voice_account_sid: '', voice_auth_token: '', voice_api_key: '', voice_api_secret: '', voice_app_sid: '', voice_region: 'us1', voice_phone_number: '', voice_recording_enabled: false, voice_speech_timeout: 5, voice_machine_detection: false, voice_media_streams_enabled: false, voice_stream_url: '', call_forwarding_type: 'Always Forward', business_hours: '', fallback_message: '' })
+  const [wa, setWa] = useState({ whatsapp_account_sid: '', whatsapp_auth_token: '', whatsapp_api_key: '', whatsapp_api_secret: '', whatsapp_messaging_service_sid: '', whatsapp_number: '', whatsapp_display_name: '', whatsapp_sandbox: true, whatsapp_media_enabled: true, whatsapp_interactive_enabled: true, whatsapp_greeting: '', whatsapp_status_callback_url: '' })
+  const [testCallTo, setTestCallTo] = useState('')
+  const [testWaTo, setTestWaTo] = useState('')
+  const [twiml, setTwiml] = useState<string | null>(null)
+
+  const i = data?.integration
+  useEffect(() => {
+    if (!i) return
+    setVoice((f) => ({ ...f, voice_account_sid: i.voice_account_sid ?? '', voice_api_key: i.voice_api_key ?? '', voice_app_sid: i.voice_app_sid ?? '', voice_region: i.voice_region ?? 'us1', voice_phone_number: i.voice_phone_number ?? '', voice_recording_enabled: i.voice_recording_enabled, voice_speech_timeout: i.voice_speech_timeout ?? 5, voice_machine_detection: i.voice_machine_detection, voice_media_streams_enabled: i.voice_media_streams_enabled, voice_stream_url: i.voice_stream_url ?? '', call_forwarding_type: i.call_forwarding_type ?? 'Always Forward', business_hours: i.business_hours ?? '', fallback_message: i.fallback_message ?? '' }))
+    setWa((f) => ({ ...f, whatsapp_account_sid: i.whatsapp_account_sid ?? '', whatsapp_messaging_service_sid: i.whatsapp_messaging_service_sid ?? '', whatsapp_number: i.whatsapp_number ?? '', whatsapp_display_name: i.whatsapp_display_name ?? '', whatsapp_sandbox: i.whatsapp_sandbox, whatsapp_media_enabled: i.whatsapp_media_enabled, whatsapp_interactive_enabled: i.whatsapp_interactive_enabled, whatsapp_greeting: i.whatsapp_greeting ?? '', whatsapp_status_callback_url: i.whatsapp_status_callback_url ?? '' }))
+  }, [i])
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['integrations'] })
+  }
 
   const saveVoice = useMutation({
     mutationFn: () => {
       if (!window.confirm('Save voice configuration? This updates your live call routing setup.')) return Promise.reject('cancelled')
-      return api.put('/integrations/voice', { voice_provider: provider, ...voice })
+      return api.put('/integrations/voice', { voice_provider: 'twilio', ...voice })
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['integrations'] }),
+    onSuccess: refresh,
   })
-
   const saveWa = useMutation({
     mutationFn: () => {
       if (!window.confirm('Save WhatsApp configuration?')) return Promise.reject('cancelled')
-      return api.put('/integrations/whatsapp', wa)
+      return api.put('/integrations/whatsapp', { whatsapp_provider: 'twilio', ...wa })
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['integrations'] }),
+    onSuccess: refresh,
   })
 
-  const i = data?.integration
+  const vVerify = useTest('/integrations/voice/verify', refresh)
+  const vCall = useTest('/integrations/voice/test-call', refresh)
+  const vSync = useTest('/integrations/voice/sync-numbers', refresh)
+  const vWire = useTest('/integrations/voice/wire-webhook', refresh)
+  const wVerify = useTest('/integrations/whatsapp/verify', refresh)
+  const wSend = useTest('/integrations/whatsapp/test-send', refresh)
+
+  const fetchTwiml = async () => setTwiml((await api.get<ApiSuccess<{ twiml: string }>>('/integrations/voice/twiml')).data.data.twiml)
+
+  const roField = { background: '#F9FAFB', color: 'var(--t3)', fontFamily: 'monospace', fontSize: 11 }
 
   return (
     <Shell role="business" logo="B" roleLabel="Business Admin" navItems={BUSINESS_NAV} activePath={pathname}
-      title="Voice & WhatsApp" subtitle="Your own provider account · billed directly to you by Twilio/Vonage">
+      title="Voice & WhatsApp" subtitle="Your own Twilio account · live-tested against the provider">
 
-      <div className="info-box"><span>ℹ️</span><span>You own your Twilio or Vonage account. The provider bills you directly. Enter your credentials below to connect. Your Platform Admin can also assist with this setup.</span></div>
+      <div className="info-box"><span>ℹ️</span><span>You own your Twilio account and are billed directly. Credentials are encrypted at rest. Your Platform Admin can also assist with this setup.</span></div>
 
+      {/* ── VOICE ── */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="ct">Voice — Your Provider Credentials</div>
-        <div className="cs">Current status: <span className={`bdg ${i?.voice_status === 'configured' ? 'b-ok' : 'b-er'}`}>{i?.voice_status === 'configured' ? '✓ Configured' : 'Not Configured'}</span></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-          <div className={`prov-card ${provider === 'twilio' ? 'active' : ''}`} onClick={() => setProvider('twilio')} style={{ cursor: 'pointer' }}>
-            <div className="prov-icon">📞</div><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Twilio</div>
-            <div className="fg" style={{ marginBottom: 8 }}><label className="fl">Account SID</label><input placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value={voice.voice_account_sid} onChange={(e) => setVoice((f) => ({ ...f, voice_account_sid: e.target.value }))} /></div>
-            <div className="fg" style={{ marginBottom: 8 }}><label className="fl">Auth Token</label><input type="password" placeholder="Your Twilio auth token" value={voice.voice_auth_token} onChange={(e) => setVoice((f) => ({ ...f, voice_auth_token: e.target.value }))} /></div>
-            <div className="fg" style={{ margin: 0 }}><label className="fl">Phone Number</label><input placeholder="+971 4 123 4567" value={voice.voice_phone_number} onChange={(e) => setVoice((f) => ({ ...f, voice_phone_number: e.target.value }))} /></div>
+        <div className="sh"><div>
+          <div className="ct">Voice — Twilio</div>
+          <div className="cs">Status: {statusBadge(i?.voice_status, i?.voice_last_error)}
+            {i?.voice_last_tested_at && <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--t3)' }}>Last tested {new Date(i.voice_last_tested_at).toLocaleString()}{i.voice_latency_ms != null && ` · ${i.voice_latency_ms}ms`}</span>}
           </div>
-          <div className={`prov-card ${provider === 'vonage' ? 'active' : ''}`} onClick={() => setProvider('vonage')} style={{ cursor: 'pointer' }}>
-            <div className="prov-icon">📱</div><div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Vonage</div>
-            <div className="fg" style={{ marginBottom: 8 }}><label className="fl">API Key</label><input placeholder="Your Vonage API key" value={voice.voice_account_sid} onChange={(e) => setVoice((f) => ({ ...f, voice_account_sid: e.target.value }))} /></div>
-            <div className="fg" style={{ marginBottom: 8 }}><label className="fl">API Secret</label><input type="password" placeholder="Your API secret" value={voice.voice_auth_token} onChange={(e) => setVoice((f) => ({ ...f, voice_auth_token: e.target.value }))} /></div>
-            <div className="fg" style={{ margin: 0 }}><label className="fl">Virtual Number</label><input placeholder="+971 4 000 0000" value={voice.voice_phone_number} onChange={(e) => setVoice((f) => ({ ...f, voice_phone_number: e.target.value }))} /></div>
-          </div>
-        </div>
-        <div className="fg"><label className="fl">Webhook URL — copy into your Twilio/Vonage console under Voice → Webhook</label><input value={data?.voice_webhook_url ?? ''} readOnly style={{ background: '#F9FAFB', color: 'var(--t3)', fontFamily: 'monospace', fontSize: 11 }} /></div>
+        </div></div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div className="fg"><label className="fl">Call Forwarding Type</label>
-            <select value={voice.call_forwarding_type} onChange={(e) => setVoice((f) => ({ ...f, call_forwarding_type: e.target.value }))}>
-              <option>Always Forward</option><option>Forward When Busy</option><option>Forward When No Answer</option><option>After Hours Only</option>
-            </select>
-          </div>
-          <div className="fg"><label className="fl">Business Hours</label><input placeholder="Sun–Thu 08:00–17:00" value={voice.business_hours} onChange={(e) => setVoice((f) => ({ ...f, business_hours: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Account SID</label><input placeholder="ACxxxxxxxx" value={voice.voice_account_sid} onChange={(e) => setVoice((f) => ({ ...f, voice_account_sid: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Auth Token {i?.voice_auth_token_set && <span className="bdg b-ok" style={{ marginLeft: 6 }}>set</span>}</label><input type="password" placeholder={i?.voice_auth_token_set ? '•••••••• (saved — leave blank to keep)' : 'Twilio auth token'} value={voice.voice_auth_token} onChange={(e) => setVoice((f) => ({ ...f, voice_auth_token: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">API Key (optional)</label><input placeholder="SKxxxxxxxx" value={voice.voice_api_key} onChange={(e) => setVoice((f) => ({ ...f, voice_api_key: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">API Secret {i?.voice_api_secret_set && <span className="bdg b-ok" style={{ marginLeft: 6 }}>set</span>}</label><input type="password" placeholder={i?.voice_api_secret_set ? '•••••••• (saved)' : 'API secret'} value={voice.voice_api_secret} onChange={(e) => setVoice((f) => ({ ...f, voice_api_secret: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Application SID (optional)</label><input placeholder="APxxxxxxxx" value={voice.voice_app_sid} onChange={(e) => setVoice((f) => ({ ...f, voice_app_sid: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Voice Region</label>
+            <select value={voice.voice_region} onChange={(e) => setVoice((f) => ({ ...f, voice_region: e.target.value }))}>
+              <option value="us1">US1 (default)</option><option value="ie1">IE1 (Ireland)</option><option value="au1">AU1 (Australia)</option>
+            </select></div>
+          <div className="fg"><label className="fl">Phone Number</label><input placeholder="+14155551234" value={voice.voice_phone_number} onChange={(e) => setVoice((f) => ({ ...f, voice_phone_number: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Speech Timeout (s)</label><input type="number" min={1} max={60} value={voice.voice_speech_timeout} onChange={(e) => setVoice((f) => ({ ...f, voice_speech_timeout: Number(e.target.value) }))} /></div>
         </div>
-        <div className="fg"><label className="fl">Fallback Message</label><textarea value={voice.fallback_message} onChange={(e) => setVoice((f) => ({ ...f, fallback_message: e.target.value }))} placeholder="Sorry, I wasn't able to help. Please call back during office hours." /></div>
-        <button className="btn bp" disabled={saveVoice.isPending} onClick={() => saveVoice.mutate()}>{saveVoice.isPending ? 'Saving…' : 'Save Voice Config'}</button>
+
+        <div style={{ display: 'flex', gap: 18, margin: '4px 0 14px', flexWrap: 'wrap' }}>
+          {([['voice_recording_enabled', 'Call Recording'], ['voice_machine_detection', 'Machine Detection'], ['voice_media_streams_enabled', 'Media Streams (realtime audio)']] as const).map(([k, label]) => (
+            <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, cursor: 'pointer' }}>
+              <div className={`toggle ${voice[k] ? 'on' : ''}`} onClick={() => setVoice((f) => ({ ...f, [k]: !f[k] }))} />{label}
+            </label>
+          ))}
+        </div>
+        {voice.voice_media_streams_enabled && (
+          <div className="fg"><label className="fl">Stream URL (wss://)</label><input placeholder="wss://your-stream-endpoint" value={voice.voice_stream_url} onChange={(e) => setVoice((f) => ({ ...f, voice_stream_url: e.target.value }))} /></div>
+        )}
+
+        <div className="fg"><label className="fl">Voice Webhook URL — auto-wired via button below, or paste into Twilio Console</label><input value={data?.voice_webhook_url ?? ''} readOnly style={roField} /></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="fg"><label className="fl">Status Callback URL</label><input value={data?.voice_status_callback_url ?? ''} readOnly style={roField} /></div>
+          <div className="fg"><label className="fl">Recording Callback URL</label><input value={data?.recording_callback_url ?? ''} readOnly style={roField} /></div>
+        </div>
+        <div className="fg"><label className="fl">Fallback / Greeting Message</label><textarea value={voice.fallback_message} onChange={(e) => setVoice((f) => ({ ...f, fallback_message: e.target.value }))} placeholder="Hello! Thanks for calling…" /></div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button className="btn bp" disabled={saveVoice.isPending} onClick={() => saveVoice.mutate()}>{saveVoice.isPending ? 'Saving…' : 'Save'}</button>
+          <button className="btn bs" disabled={vVerify.m.isPending} onClick={() => vVerify.m.mutate(undefined)}>Verify Credentials</button>
+          <button className="btn bs" disabled={vSync.m.isPending} onClick={() => vSync.m.mutate(undefined)}>Sync Numbers</button>
+          <button className="btn bs" disabled={vWire.m.isPending} onClick={() => { if (window.confirm('Point your Twilio number webhook at this platform?')) vWire.m.mutate(undefined) }}>Wire Webhook</button>
+          <button className="btn bs" onClick={fetchTwiml}>Generate TwiML</button>
+          <input placeholder="+9715xxxxxxx" value={testCallTo} onChange={(e) => setTestCallTo(e.target.value)} style={{ width: 150 }} />
+          <button className="btn bok bsm" disabled={vCall.m.isPending || !testCallTo} onClick={() => { if (window.confirm(`Place a real test call to ${testCallTo}?`)) vCall.m.mutate({ to: testCallTo }) }}>Create Test Call</button>
+        </div>
+        <TestPanel result={vVerify.result ?? vSync.result ?? vWire.result ?? vCall.result} pending={vVerify.m.isPending || vSync.m.isPending || vWire.m.isPending || vCall.m.isPending} />
+        {twiml && <div className="fg" style={{ marginTop: 12 }}><label className="fl">Generated TwiML</label><textarea readOnly value={twiml} style={{ ...roField, minHeight: 80 }} /></div>}
+        <LogsTable logs={voiceLogs} />
       </div>
 
-      <div className="warn-box"><span>🔒</span><span>STT (OpenAI Whisper) and TTS (OpenAI TTS) are managed by Platform Admin at platform level. Cost is absorbed in your AMC.</span></div>
-
+      {/* ── WHATSAPP ── */}
       <div className="card">
-        <div className="ct">WhatsApp — Your Business Account</div>
-        <div className="cs">Current status: <span className={`bdg ${wa.whatsapp_number || i?.whatsapp_status !== 'not_configured' ? 'b-wn' : 'b-gy'}`}>{i?.whatsapp_status === 'sandbox' ? 'Sandbox' : i?.whatsapp_status === 'production' ? 'Production' : 'Not Enabled'}</span></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div>
-            <div className="fg"><label className="fl">Your WhatsApp Business Number</label><input placeholder="+971 50 000 0000" value={wa.whatsapp_number} onChange={(e) => setWa((f) => ({ ...f, whatsapp_number: e.target.value }))} /></div>
-            <div className="fg"><label className="fl">Display Name</label><input placeholder="Your Business Name" value={wa.whatsapp_display_name} onChange={(e) => setWa((f) => ({ ...f, whatsapp_display_name: e.target.value }))} /></div>
-            <div className="fg" style={{ margin: 0 }}><label className="fl">Phone Number ID (from Meta)</label><input placeholder="Meta phone number ID" value={wa.whatsapp_phone_number_id} onChange={(e) => setWa((f) => ({ ...f, whatsapp_phone_number_id: e.target.value }))} /></div>
+        <div className="sh"><div>
+          <div className="ct">WhatsApp — Twilio</div>
+          <div className="cs">Status: {statusBadge(i?.whatsapp_status, i?.whatsapp_last_error)}
+            {i?.whatsapp_last_tested_at && <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--t3)' }}>Last tested {new Date(i.whatsapp_last_tested_at).toLocaleString()}{i.whatsapp_latency_ms != null && ` · ${i.whatsapp_latency_ms}ms`}</span>}
           </div>
-          <div>
-            <div className="fg"><label className="fl">Your WABA Token</label><input type="password" placeholder="Your Meta WhatsApp token" value={wa.whatsapp_token} onChange={(e) => setWa((f) => ({ ...f, whatsapp_token: e.target.value }))} /></div>
-            <div className="fg"><label className="fl">Webhook URL — paste into Meta Developer Console</label><input value={data?.whatsapp_webhook_url ?? ''} readOnly style={{ background: '#F9FAFB', color: 'var(--t3)', fontFamily: 'monospace', fontSize: 11 }} /></div>
-            <div className="fg" style={{ margin: 0 }}><label className="fl">Greeting Message</label><textarea value={wa.whatsapp_greeting} onChange={(e) => setWa((f) => ({ ...f, whatsapp_greeting: e.target.value }))} placeholder="Hello! How can I help you today?" /></div>
-          </div>
+        </div></div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="fg"><label className="fl">Account SID</label><input placeholder="ACxxxxxxxx" value={wa.whatsapp_account_sid} onChange={(e) => setWa((f) => ({ ...f, whatsapp_account_sid: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Auth Token {i?.whatsapp_auth_token_set && <span className="bdg b-ok" style={{ marginLeft: 6 }}>set</span>}</label><input type="password" placeholder={i?.whatsapp_auth_token_set ? '•••••••• (saved — leave blank to keep)' : 'Twilio auth token'} value={wa.whatsapp_auth_token} onChange={(e) => setWa((f) => ({ ...f, whatsapp_auth_token: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">API Key (optional)</label><input placeholder="SKxxxxxxxx" value={wa.whatsapp_api_key} onChange={(e) => setWa((f) => ({ ...f, whatsapp_api_key: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">API Secret {i?.whatsapp_api_secret_set && <span className="bdg b-ok" style={{ marginLeft: 6 }}>set</span>}</label><input type="password" placeholder={i?.whatsapp_api_secret_set ? '•••••••• (saved)' : 'API secret'} value={wa.whatsapp_api_secret} onChange={(e) => setWa((f) => ({ ...f, whatsapp_api_secret: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Messaging Service SID (optional)</label><input placeholder="MGxxxxxxxx" value={wa.whatsapp_messaging_service_sid} onChange={(e) => setWa((f) => ({ ...f, whatsapp_messaging_service_sid: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">WhatsApp Number</label><input placeholder="+14155238886 (sandbox) or your number" value={wa.whatsapp_number} onChange={(e) => setWa((f) => ({ ...f, whatsapp_number: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Business Name</label><input value={wa.whatsapp_display_name} onChange={(e) => setWa((f) => ({ ...f, whatsapp_display_name: e.target.value }))} /></div>
+          <div className="fg"><label className="fl">Mode</label>
+            <select value={wa.whatsapp_sandbox ? 'sandbox' : 'production'} onChange={(e) => setWa((f) => ({ ...f, whatsapp_sandbox: e.target.value === 'sandbox' }))}>
+              <option value="sandbox">Sandbox</option><option value="production">Production</option>
+            </select></div>
         </div>
-        <div style={{ marginTop: 14 }}>
-          <button className="btn bp" disabled={saveWa.isPending} onClick={() => saveWa.mutate()}>{saveWa.isPending ? 'Saving…' : 'Save WhatsApp Config'}</button>
+
+        <div style={{ display: 'flex', gap: 18, margin: '4px 0 14px', flexWrap: 'wrap' }}>
+          {([['whatsapp_media_enabled', 'Media Support'], ['whatsapp_interactive_enabled', 'Interactive Messages']] as const).map(([k, label]) => (
+            <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, cursor: 'pointer' }}>
+              <div className={`toggle ${wa[k] ? 'on' : ''}`} onClick={() => setWa((f) => ({ ...f, [k]: !f[k] }))} />{label}
+            </label>
+          ))}
         </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="fg"><label className="fl">Incoming Webhook — paste into Twilio WhatsApp sandbox/sender config</label><input value={data?.whatsapp_webhook_url ?? ''} readOnly style={roField} /></div>
+          <div className="fg"><label className="fl">Status Callback</label><input value={data?.whatsapp_status_callback_url ?? ''} readOnly style={roField} /></div>
+        </div>
+        <div className="fg"><label className="fl">Greeting Message</label><textarea value={wa.whatsapp_greeting} onChange={(e) => setWa((f) => ({ ...f, whatsapp_greeting: e.target.value }))} placeholder="Hello! How can I help you today?" /></div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button className="btn bp" disabled={saveWa.isPending} onClick={() => saveWa.mutate()}>{saveWa.isPending ? 'Saving…' : 'Save'}</button>
+          <button className="btn bs" disabled={wVerify.m.isPending} onClick={() => wVerify.m.mutate(undefined)}>Test Connection</button>
+          <input placeholder="+9715xxxxxxx" value={testWaTo} onChange={(e) => setTestWaTo(e.target.value)} style={{ width: 150 }} />
+          <button className="btn bok bsm" disabled={wSend.m.isPending || !testWaTo} onClick={() => { if (window.confirm(`Send a real WhatsApp test message to ${testWaTo}?`)) wSend.m.mutate({ to: testWaTo }) }}>Send Test WhatsApp</button>
+        </div>
+        <TestPanel result={wVerify.result ?? wSend.result} pending={wVerify.m.isPending || wSend.m.isPending} />
+        <LogsTable logs={waLogs} />
       </div>
     </Shell>
   )

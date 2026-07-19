@@ -9,6 +9,7 @@ import { PlatformAdminTenants } from '@/pages/PlatformAdminTenants'
 import { PlatformAdminUsers } from '@/pages/PlatformAdminUsers'
 import { PlatformAdminAIProviders } from '@/pages/PlatformAdminAIProviders'
 import { PlatformAdminVoice } from '@/pages/PlatformAdminVoice'
+import { PlatformAdminVoiceConfig } from '@/pages/PlatformAdminVoiceConfig'
 import { PlatformAdminVoiceTenant } from '@/pages/PlatformAdminVoiceTenant'
 import { PlatformAdminBranding } from '@/pages/PlatformAdminBranding'
 import { PlatformAdminTenantBrand } from '@/pages/PlatformAdminTenantBrand'
@@ -71,6 +72,7 @@ function AppRoutes() {
         <Route path="/admin/users" element={<PlatformAdminUsers />} />
         <Route path="/admin/ai-providers" element={<PlatformAdminAIProviders />} />
         <Route path="/admin/voice" element={<PlatformAdminVoice />} />
+        <Route path="/admin/voice-config" element={<PlatformAdminVoiceConfig />} />
         <Route path="/admin/voice/:tenantId" element={<PlatformAdminVoiceTenant />} />
         <Route path="/admin/branding" element={<PlatformAdminBranding />} />
         <Route path="/admin/branding/:tenantId" element={<PlatformAdminTenantBrand />} />

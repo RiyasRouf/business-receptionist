@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { api, type ApiSuccess } from '@/lib/api'
 import { Shell } from '@/components/Shell'
 import { PLATFORM_NAV } from '@/lib/nav'
+
+interface TestResult { ok: boolean; status: string; latency_ms: number | null; data: unknown }
 
 interface Integration {
   voice_provider: string | null; voice_account_sid: string | null; voice_phone_number: string | null
@@ -43,6 +46,20 @@ export function PlatformAdminVoiceTenant() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'integrations'] }),
   })
 
+  const [testResult, setTestResult] = useState<TestResult | null>(null)
+  const [testing, setTesting] = useState(false)
+
+  async function runTest(path: string, body: Record<string, unknown> = {}) {
+    setTesting(true); setTestResult(null)
+    try {
+      setTestResult((await api.post<ApiSuccess<TestResult>>(`/admin/tenants/${tenantId}${path}`, body)).data.data)
+    } catch (e) {
+      setTestResult({ ok: false, status: isAxiosError(e) ? (e.response?.data?.message ?? 'request_failed') : 'request_failed', latency_ms: null, data: null })
+    }
+    setTesting(false)
+    queryClient.invalidateQueries({ queryKey: ['admin', 'integrations'] })
+  }
+
   return (
     <Shell role="platform" logo="B" roleLabel="Platform Admin" navItems={PLATFORM_NAV} activePath="/admin/voice"
       title="Setup Assist" topbarActions={<div className="bdg b-wn">Credentials belong to this tenant only</div>}>
@@ -76,7 +93,11 @@ export function PlatformAdminVoiceTenant() {
           <div className="fg"><label className="fl">Business Hours</label><input placeholder="Sun–Thu 08:00–17:00" value={voice.business_hours} onChange={(e) => setVoice((f) => ({ ...f, business_hours: e.target.value }))} /></div>
         </div>
         <div className="fg"><label className="fl">Fallback Message</label><textarea value={voice.fallback_message} onChange={(e) => setVoice((f) => ({ ...f, fallback_message: e.target.value }))} placeholder="Sorry, I wasn't able to help. Please call back during office hours." /></div>
-        <button className="btn bp" disabled={saveVoice.isPending} onClick={() => saveVoice.mutate()}>{saveVoice.isPending ? 'Saving…' : 'Save Voice Config'}</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn bp" disabled={saveVoice.isPending} onClick={() => saveVoice.mutate()}>{saveVoice.isPending ? 'Saving…' : 'Save Voice Config'}</button>
+          <button className="btn bs" disabled={testing} onClick={() => runTest('/integrations/voice/verify')}>Verify Credentials</button>
+          <button className="btn bs" disabled={testing} onClick={() => runTest('/integrations/voice/sync-numbers')}>Sync Numbers</button>
+        </div>
       </div>
 
       <div className="card">
@@ -93,11 +114,21 @@ export function PlatformAdminVoiceTenant() {
             <div className="fg" style={{ margin: 0 }}><label className="fl">Greeting Message</label><textarea value={wa.whatsapp_greeting} onChange={(e) => setWa((f) => ({ ...f, whatsapp_greeting: e.target.value }))} placeholder="Hello! Welcome. How can I help?" /></div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn bp" disabled={saveWa.isPending} onClick={() => saveWa.mutate()}>{saveWa.isPending ? 'Saving…' : 'Save WhatsApp Config'}</button>
+          <button className="btn bs" disabled={testing} onClick={() => runTest('/integrations/whatsapp/verify')}>Test Connection</button>
           <div className="bdg b-wn">⚠️ Sandbox — Production needs Meta approval</div>
         </div>
       </div>
+
+      {testing && <div className="info-box" style={{ marginTop: 14 }}><span>⏳</span><span>Testing against provider…</span></div>}
+      {testResult && !testing && (
+        <div className={testResult.ok ? 'info-box' : 'warn-box'} style={{ marginTop: 14 }}>
+          <span>{testResult.ok ? '✅' : '⚠️'}</span>
+          <span><b>{testResult.ok ? 'Connected' : testResult.status}</b>{testResult.latency_ms != null && <> · {testResult.latency_ms}ms</>}
+            {testResult.data != null && <> · <code style={{ fontSize: 10 }}>{JSON.stringify(testResult.data).slice(0, 200)}</code></>}</span>
+        </div>
+      )}
     </Shell>
   )
 }

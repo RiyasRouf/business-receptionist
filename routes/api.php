@@ -12,7 +12,10 @@ use App\Modules\CorePlatform\Http\Controllers\TenantController;
 use App\Modules\CorePlatform\Http\Controllers\TenantIntegrationController;
 use App\Modules\CorePlatform\Http\Controllers\TenantRoleController;
 use App\Modules\CorePlatform\Http\Controllers\UserController;
+use App\Modules\CorePlatform\Http\Controllers\IntegrationTestController;
+use App\Modules\CorePlatform\Http\Controllers\VoiceProviderController;
 use App\Modules\KnowledgeBase\Http\Controllers\KnowledgeBaseController;
+use App\Modules\VoiceAdapter\Http\Controllers\TwilioWebhookController;
 use App\Modules\LeadCapture\Http\Controllers\LeadController;
 use App\Modules\Media\Http\Controllers\TranscriptController;
 use App\Modules\WhatsAppAdapter\Http\Controllers\WhatsAppWebhookController;
@@ -40,6 +43,14 @@ Route::prefix('v1')->group(function () {
     // Unauthenticated — the login page has no tenant/session yet and
     // only needs the platform-wide name/color/tagline/logo to render.
     Route::get('/public/branding', [BrandingController::class, 'platformShow']);
+
+    // Twilio webhooks — no JWT; per-tenant X-Twilio-Signature HMAC is
+    // validated inside the controller (tenant resolved by called number).
+    Route::post('/twilio/voice', [TwilioWebhookController::class, 'voice']);
+    Route::post('/twilio/status', [TwilioWebhookController::class, 'status']);
+    Route::post('/twilio/recording', [TwilioWebhookController::class, 'recording']);
+    Route::post('/twilio/whatsapp/inbound', [TwilioWebhookController::class, 'whatsappInbound']);
+    Route::post('/twilio/whatsapp/status', [TwilioWebhookController::class, 'messageStatus']);
 
     Route::middleware('jwt.auth')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -105,6 +116,15 @@ Route::prefix('v1')->group(function () {
                 Route::get('/integrations', [TenantIntegrationController::class, 'show']);
                 Route::put('/integrations/voice', [TenantIntegrationController::class, 'updateVoice']);
                 Route::put('/integrations/whatsapp', [TenantIntegrationController::class, 'updateWhatsapp']);
+                Route::post('/integrations/voice/verify', [IntegrationTestController::class, 'verifyVoice']);
+                Route::post('/integrations/voice/test-call', [IntegrationTestController::class, 'testCall']);
+                Route::post('/integrations/voice/sync-numbers', [IntegrationTestController::class, 'syncNumbers']);
+                Route::post('/integrations/voice/wire-webhook', [IntegrationTestController::class, 'wireWebhook']);
+                Route::get('/integrations/voice/twiml', [IntegrationTestController::class, 'twiml']);
+                Route::post('/integrations/whatsapp/verify', [IntegrationTestController::class, 'verifyWhatsapp']);
+                Route::post('/integrations/whatsapp/test-send', [IntegrationTestController::class, 'sendTestWhatsapp']);
+                Route::get('/integrations/{scope}/balance', [IntegrationTestController::class, 'balance']);
+                Route::get('/integrations/{scope}/logs', [IntegrationTestController::class, 'logs']);
                 Route::get('/branding', [BrandingController::class, 'tenantShow']);
                 Route::put('/branding', [BrandingController::class, 'tenantUpdate']);
                 Route::post('/branding/logo', [BrandingController::class, 'tenantUploadLogo']);
@@ -137,6 +157,26 @@ Route::prefix('v1')->group(function () {
             Route::get('/admin/tenants/{tenantId}/integrations', [TenantIntegrationController::class, 'show']);
             Route::put('/admin/tenants/{tenantId}/integrations/voice', [TenantIntegrationController::class, 'updateVoice']);
             Route::put('/admin/tenants/{tenantId}/integrations/whatsapp', [TenantIntegrationController::class, 'updateWhatsapp']);
+            Route::post('/admin/tenants/{tenantId}/integrations/voice/verify', [IntegrationTestController::class, 'verifyVoice']);
+            Route::post('/admin/tenants/{tenantId}/integrations/voice/test-call', [IntegrationTestController::class, 'testCall']);
+            Route::post('/admin/tenants/{tenantId}/integrations/voice/sync-numbers', [IntegrationTestController::class, 'syncNumbers']);
+            Route::post('/admin/tenants/{tenantId}/integrations/voice/wire-webhook', [IntegrationTestController::class, 'wireWebhook']);
+            Route::get('/admin/tenants/{tenantId}/integrations/voice/twiml', [IntegrationTestController::class, 'twiml']);
+            Route::post('/admin/tenants/{tenantId}/integrations/whatsapp/verify', [IntegrationTestController::class, 'verifyWhatsapp']);
+            Route::post('/admin/tenants/{tenantId}/integrations/whatsapp/test-send', [IntegrationTestController::class, 'sendTestWhatsapp']);
+            Route::get('/admin/tenants/{tenantId}/integrations/{scope}/logs', [IntegrationTestController::class, 'logs']);
+
+            // Platform-owned Voice AI (Deepgram) config + live tests
+            Route::get('/admin/voice-providers', [VoiceProviderController::class, 'index']);
+            Route::post('/admin/voice-providers', [VoiceProviderController::class, 'store']);
+            Route::put('/admin/voice-providers/{providerId}', [VoiceProviderController::class, 'update']);
+            Route::delete('/admin/voice-providers/{providerId}', [VoiceProviderController::class, 'destroy']);
+            Route::post('/admin/voice-providers/{providerId}/verify', [VoiceProviderController::class, 'verify']);
+            Route::get('/admin/voice-providers/{providerId}/models', [VoiceProviderController::class, 'models']);
+            Route::post('/admin/voice-providers/{providerId}/stt-test', [VoiceProviderController::class, 'sttTest']);
+            Route::post('/admin/voice-providers/{providerId}/tts-test', [VoiceProviderController::class, 'ttsTest']);
+            Route::post('/admin/voice-providers/{providerId}/latency-test', [VoiceProviderController::class, 'latencyTest']);
+            Route::get('/admin/voice-providers-logs', [VoiceProviderController::class, 'logs']);
 
             Route::get('/admin/branding', [BrandingController::class, 'platformShow']);
             Route::put('/admin/branding', [BrandingController::class, 'platformUpdate']);

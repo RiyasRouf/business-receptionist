@@ -15,6 +15,7 @@ export const PLATFORM_NAV: NavItem[] = [
   { label: 'Tenants', to: '/admin/tenants' },
   { label: 'Users', to: '/admin/users' },
   { label: 'AI Providers', to: '/admin/ai-providers', section: 'Configuration' },
+  { label: 'Voice Configuration', to: '/admin/voice-config', section: 'Configuration' },
   { label: 'Voice & WhatsApp', to: '/admin/voice', section: 'Configuration' },
   { label: 'Branding', to: '/admin/branding', section: 'Configuration' },
   { label: 'Health Monitor', to: '/admin/health', section: 'Configuration' },
