@@ -70,7 +70,7 @@ class BrandingController
 
         return $this->success($this->withLogoUrl([
             'tenant_id' => $tenant->tenant_id,
-            'brand_name' => $tenant->brand_name,
+            'brand_name' => $tenant->brand_name ?: $tenant->name,
             'brand_color' => $tenant->brand_color,
             'brand_tagline' => $tenant->brand_tagline,
             'brand_logo_path' => $tenant->brand_logo_path,
@@ -90,6 +90,13 @@ class BrandingController
             'brand_color' => ['sometimes', 'nullable', 'string', 'max:7'],
             'brand_tagline' => ['sometimes', 'nullable', 'string', 'max:255'],
         ]);
+
+        // Single source of truth: the tenant's display name IS brand_name.
+        // Keep the legacy `name` column (shown in platform tenant list,
+        // dashboards) in sync so one edit updates every surface.
+        if (array_key_exists('brand_name', $validated) && filled($validated['brand_name'])) {
+            $validated['name'] = $validated['brand_name'];
+        }
 
         $tenant->update($validated);
 
