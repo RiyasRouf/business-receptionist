@@ -58,7 +58,7 @@ class GuardrailService
             if (preg_match($pattern, $input)) {
                 return GuardrailResult::fail(
                     reason: 'prompt_injection_detected',
-                    fallbackResponse: "I can only help with school admission questions — let's get back to that.",
+                    fallbackResponse: "I'm here to help with questions about our services — let's get back to that.",
                 );
             }
         }

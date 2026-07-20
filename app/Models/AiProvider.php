@@ -19,6 +19,11 @@ class AiProvider extends Model
 
     protected $hidden = ['api_key'];
 
+    protected function casts(): array
+    {
+        return ['api_key' => 'encrypted'];
+    }
+
     public function models()
     {
         return $this->hasMany(AiProviderModel::class, 'provider_id', 'provider_id');

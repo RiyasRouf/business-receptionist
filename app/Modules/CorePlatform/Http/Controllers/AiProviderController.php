@@ -29,7 +29,8 @@ class AiProviderController
 
     public function index(Request $request): JsonResponse
     {
-        $providers = AiProvider::with('models')->orderBy('name')->get();
+        $providers = AiProvider::with('models')->orderBy('name')->get()
+            ->map(fn (AiProvider $p) => array_merge($p->toArray(), ['api_key_set' => filled($p->api_key)]));
 
         return $this->success($providers);
     }
@@ -62,6 +63,11 @@ class AiProviderController
             'base_url' => ['sometimes', 'nullable', 'string', 'max:255'],
             'status' => ['sometimes', 'string', 'in:active,inactive'],
         ]);
+
+        // Blank api_key means "keep existing" — never wipe the stored key.
+        if (blank($validated['api_key'] ?? null)) {
+            unset($validated['api_key']);
+        }
 
         $provider->update($validated);
 
