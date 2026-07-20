@@ -21,7 +21,11 @@ class LeadFieldExtractor
         'fifteen' => 15, 'sixteen' => 16, 'seventeen' => 17, 'eighteen' => 18,
     ];
 
-    private const NAME_PREFIXES = '/^\s*(my name is|it is|it\'s|i am|i\'m|this is|call me|the name is|name is)\s+/i';
+    private const NAME_PREFIXES = '/^\s*(my (son|daughter|child|kid)(\'s name)? is|my (son|daughter|child|kid)|my name is|it is|it\'s|i am|i\'m|this is|call me|the name is|name is|his name is|her name is)\s+/i';
+
+    // Non-answers STT often produces when the caller hesitates — these
+    // must never be stored as a name.
+    private const FILLER = '/\b(hmm+|uh+|um+|let me (see|think|check)|not sure|i don\'t know|dunno|wait|hold on|one (sec|moment)|maybe|actually)\b/i';
 
     public function extract(LeadField $field, string $raw): ?string
     {
@@ -39,14 +43,21 @@ class LeadFieldExtractor
 
     private function extractName(string $input): ?string
     {
+        if (preg_match(self::FILLER, $input)) {
+            return null; // hesitation / non-answer
+        }
+
         $cleaned = trim((string) preg_replace(self::NAME_PREFIXES, '', $input));
         $cleaned = rtrim($cleaned, " .!\t\n\r");
 
-        if ($cleaned === '' || str_word_count($cleaned) > 5 || str_contains($cleaned, '?')) {
-            return null; // paragraph/question, not a name — don't guess
+        // Real names are 1-4 words, letters/spaces/hyphens/apostrophes
+        // only — reject sentences, questions, digits.
+        if ($cleaned === '' || str_word_count($cleaned) > 4 || str_contains($cleaned, '?')
+            || ! preg_match("/^[\p{L}][\p{L}\s'.-]*$/u", $cleaned)) {
+            return null;
         }
 
-        return $cleaned;
+        return ucwords(strtolower($cleaned));
     }
 
     private function extractPhone(string $input): ?string
