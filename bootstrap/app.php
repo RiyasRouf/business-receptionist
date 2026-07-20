@@ -5,6 +5,7 @@ use App\Modules\CorePlatform\Http\Middleware\EnforcePermission;
 use App\Modules\CorePlatform\Http\Middleware\JwtAuthenticate;
 use App\Modules\CorePlatform\Http\Middleware\RequireRole;
 use App\Modules\CorePlatform\Http\Middleware\ResolveTenant;
+use App\Modules\CorePlatform\Http\Middleware\SecurityHeaders;
 use App\Modules\OutboxRelay\Console\ConsumePostCallEventsCommand;
 use App\Modules\OutboxRelay\Console\RelayOutboxCommand;
 use App\Modules\WhatsAppAdapter\Http\Middleware\VerifyWhatsAppSignature;
@@ -33,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->append(AddTraceId::class);
+        $middleware->append(SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // API-only backend — always render JSON errors, regardless of the
