@@ -24,8 +24,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('/ready', [ReadinessController::class, 'check']);
 
 Route::prefix('v1')->group(function () {
-    Route::post('/auth/login', [AuthController::class, 'login']);
-    Route::post('/auth/refresh', [AuthController::class, 'refresh']);
+    // Per-IP brute-force cap on top of the per-account lockout — stops
+    // credential-spraying across many accounts from one source.
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:30,1');
 
     // Meta calls these directly — no JWT, HMAC signature is the auth
     // mechanism (ADR-021). voice_webhook-equivalent system role.
@@ -42,18 +44,25 @@ Route::prefix('v1')->group(function () {
 
     // Unauthenticated — the login page has no tenant/session yet and
     // only needs the platform-wide name/color/tagline/logo to render.
-    Route::get('/public/branding', [BrandingController::class, 'platformShow']);
+    Route::get('/public/branding', [BrandingController::class, 'platformShow'])->middleware('throttle:60,1');
 
     // Twilio webhooks — no JWT; per-tenant X-Twilio-Signature HMAC is
     // validated inside the controller (tenant resolved by called number).
-    Route::post('/twilio/voice', [TwilioWebhookController::class, 'voice']);
-    Route::post('/twilio/voice/turn', [TwilioWebhookController::class, 'voiceTurn']);
-    Route::post('/twilio/status', [TwilioWebhookController::class, 'status']);
-    Route::post('/twilio/recording', [TwilioWebhookController::class, 'recording']);
-    Route::post('/twilio/whatsapp/inbound', [TwilioWebhookController::class, 'whatsappInbound']);
-    Route::post('/twilio/whatsapp/status', [TwilioWebhookController::class, 'messageStatus']);
+    // Throttled per-IP: each inbound turn drives a real (paid) AI call, so
+    // an unauthenticated flood here is a cost/DoS vector without a cap.
+    Route::middleware('throttle:120,1')->group(function () {
+        Route::post('/twilio/voice', [TwilioWebhookController::class, 'voice']);
+        Route::post('/twilio/voice/turn', [TwilioWebhookController::class, 'voiceTurn']);
+        Route::post('/twilio/status', [TwilioWebhookController::class, 'status']);
+        Route::post('/twilio/recording', [TwilioWebhookController::class, 'recording']);
+        Route::post('/twilio/whatsapp/inbound', [TwilioWebhookController::class, 'whatsappInbound']);
+        Route::post('/twilio/whatsapp/status', [TwilioWebhookController::class, 'messageStatus']);
+    });
 
-    Route::middleware('jwt.auth')->group(function () {
+    // Authenticated surface — per-user cap. Several endpoints (provider
+    // verify/test-call/STT/TTS) trigger real, billable outbound API calls,
+    // so even an authenticated user shouldn't be able to hammer them.
+    Route::middleware(['jwt.auth', 'throttle:120,1'])->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
         // Role-agnostic — every authenticated user (including
