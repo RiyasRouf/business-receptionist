@@ -20,6 +20,7 @@ class TenantIntegration extends Model
         'voice_provider', 'voice_account_sid', 'voice_auth_token', 'voice_phone_number',
         'voice_status', 'call_forwarding_type', 'business_hours', 'fallback_message',
         'voice_api_key', 'voice_api_secret', 'voice_app_sid', 'voice_region',
+        'voice_base_url', 'voice_webhook_secret',
         'voice_recording_enabled', 'voice_speech_timeout', 'voice_machine_detection',
         'voice_media_streams_enabled', 'voice_stream_url', 'voice_last_tested_at',
         'voice_latency_ms', 'voice_last_error', 'voice_tts_voice',
@@ -32,7 +33,7 @@ class TenantIntegration extends Model
     ];
 
     protected $hidden = [
-        'voice_auth_token', 'voice_api_secret', 'voice_api_key',
+        'voice_auth_token', 'voice_api_secret', 'voice_api_key', 'voice_webhook_secret',
         'whatsapp_token', 'whatsapp_auth_token', 'whatsapp_api_secret', 'whatsapp_api_key',
     ];
 
@@ -42,6 +43,7 @@ class TenantIntegration extends Model
             'voice_auth_token' => 'encrypted',
             'voice_api_key' => 'encrypted',
             'voice_api_secret' => 'encrypted',
+            'voice_webhook_secret' => 'encrypted',
             'whatsapp_token' => 'encrypted',
             'whatsapp_auth_token' => 'encrypted',
             'whatsapp_api_key' => 'encrypted',
@@ -63,6 +65,7 @@ class TenantIntegration extends Model
         return array_merge($this->toArray(), [
             'voice_auth_token_set' => filled($this->voice_auth_token),
             'voice_api_secret_set' => filled($this->voice_api_secret),
+            'voice_webhook_secret_set' => filled($this->voice_webhook_secret),
             'whatsapp_auth_token_set' => filled($this->whatsapp_auth_token),
             'whatsapp_api_secret_set' => filled($this->whatsapp_api_secret),
         ]);

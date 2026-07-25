@@ -3,25 +3,34 @@
 namespace App\Modules\CorePlatform\Http\Controllers;
 
 use App\Models\TenantIntegration;
+use App\Modules\ConversationEngine\Services\ConversationEngine;
 use App\Modules\CorePlatform\Http\ApiResponse;
 use App\Modules\CorePlatform\Http\LogsAudit;
+use App\Modules\CorePlatform\Services\Providers\InfobipVoiceService;
 use App\Modules\CorePlatform\Services\Providers\ProviderTestLogger;
 use App\Modules\CorePlatform\Services\Providers\TwilioService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Redis;
 
 /**
  * Live provider actions for tenant Voice/WhatsApp — every endpoint hits
- * Twilio for real and logs to provider_test_logs. Reachable both as
- * tenant self-service and platform-assist (route tenant_id).
+ * the real provider (Twilio, or Infobip for voice) and logs to
+ * provider_test_logs. Reachable both as tenant self-service and
+ * platform-assist (route tenant_id). Voice methods dispatch on
+ * $integration->voice_provider; WhatsApp is Twilio-only for now.
  */
 class IntegrationTestController
 {
     use ApiResponse;
     use LogsAudit;
 
+    private const INFOBIP_CALL_PTR_TTL = 14400;
+
     public function __construct(
         private readonly TwilioService $twilio,
+        private readonly InfobipVoiceService $infobip,
+        private readonly ConversationEngine $engine,
         private readonly ProviderTestLogger $logger,
     ) {
     }
@@ -42,7 +51,12 @@ class IntegrationTestController
 
     public function verifyVoice(Request $request, ?string $tenantId = null): JsonResponse
     {
-        return $this->respond($this->twilio->verify('voice', $this->integration($request, $tenantId)));
+        $i = $this->integration($request, $tenantId);
+        if ($i->voice_provider === 'infobip') {
+            return $this->respond($this->infobip->verify($i));
+        }
+
+        return $this->respond($this->twilio->verify('voice', $i));
     }
 
     public function verifyWhatsapp(Request $request, ?string $tenantId = null): JsonResponse
@@ -62,10 +76,33 @@ class IntegrationTestController
         $validated = $request->validate(['to' => ['required', 'string', 'max:32']]);
         $i = $this->integration($request, $tenantId);
 
-        $result = $this->twilio->createTestCall($i, $validated['to'], $this->twilio->generateTwiml($i));
+        $result = $i->voice_provider === 'infobip'
+            ? $this->infobipTestCall($i, $validated['to'])
+            : $this->twilio->createTestCall($i, $validated['to'], $this->twilio->generateTwiml($i));
+
         $this->audit($request, 'integration.test_call', 'tenant_integration', $i->integration_id, ['to' => $validated['to'], 'ok' => $result['ok']], $i->tenant_id);
 
         return $this->respond($result);
+    }
+
+    /**
+     * Infobip has no per-call flow-fetch URL like Twilio's TwiML Url — an
+     * outbound call only gets webhook events once answered, so the engine
+     * session has to be bootstrapped here (same pointer scheme
+     * InfobipWebhookController uses for real inbound calls) before the
+     * call is placed, keyed by the callId Infobip hands back.
+     */
+    private function infobipTestCall(TenantIntegration $i, string $to): array
+    {
+        $result = $this->infobip->createTestCall($i, $to);
+        $callId = $result['data']['id'] ?? $result['data']['callId'] ?? null;
+
+        if ($result['ok'] && $callId) {
+            $session = $this->engine->startSession($i->tenant_id, 'voice', $i->voice_phone_number ?: 'test-call');
+            Redis::setex("infobip:call:{$callId}", self::INFOBIP_CALL_PTR_TTL, $session->session_id);
+        }
+
+        return $result;
     }
 
     public function previewVoice(Request $request, ?string $tenantId = null): JsonResponse
@@ -95,13 +132,20 @@ class IntegrationTestController
 
     public function syncNumbers(Request $request, ?string $tenantId = null): JsonResponse
     {
-        return $this->respond($this->twilio->listNumbers($this->integration($request, $tenantId)));
+        $i = $this->integration($request, $tenantId);
+        if ($i->voice_provider === 'infobip') {
+            return $this->respond($this->infobip->listNumbers($i));
+        }
+
+        return $this->respond($this->twilio->listNumbers($i));
     }
 
     public function wireWebhook(Request $request, ?string $tenantId = null): JsonResponse
     {
         $i = $this->integration($request, $tenantId);
-        $result = $this->twilio->wireVoiceWebhook($i, url('/api/v1/twilio/voice'));
+        $result = $i->voice_provider === 'infobip'
+            ? $this->infobip->wireVoiceWebhook($i, url('/api/v1/infobip/voice/events'))
+            : $this->twilio->wireVoiceWebhook($i, url('/api/v1/twilio/voice'));
         $this->audit($request, 'integration.webhook_wired', 'tenant_integration', $i->integration_id, ['ok' => $result['ok']], $i->tenant_id);
 
         return $this->respond($result);

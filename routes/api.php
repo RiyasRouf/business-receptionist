@@ -15,6 +15,7 @@ use App\Modules\CorePlatform\Http\Controllers\UserController;
 use App\Modules\CorePlatform\Http\Controllers\IntegrationTestController;
 use App\Modules\CorePlatform\Http\Controllers\VoiceProviderController;
 use App\Modules\KnowledgeBase\Http\Controllers\KnowledgeBaseController;
+use App\Modules\VoiceAdapter\Http\Controllers\InfobipWebhookController;
 use App\Modules\VoiceAdapter\Http\Controllers\TwilioWebhookController;
 use App\Modules\LeadCapture\Http\Controllers\LeadController;
 use App\Modules\Media\Http\Controllers\TranscriptController;
@@ -57,6 +58,11 @@ Route::prefix('v1')->group(function () {
         Route::post('/twilio/recording', [TwilioWebhookController::class, 'recording']);
         Route::post('/twilio/whatsapp/inbound', [TwilioWebhookController::class, 'whatsappInbound']);
         Route::post('/twilio/whatsapp/status', [TwilioWebhookController::class, 'messageStatus']);
+
+        // Infobip Calls API webhook — no JWT; per-tenant ?key= secret is
+        // validated inside the controller (tenant resolved by
+        // callsConfigurationId in the event payload).
+        Route::post('/infobip/voice/events', [InfobipWebhookController::class, 'events']);
     });
 
     // Authenticated surface — per-user cap. Several endpoints (provider

@@ -78,10 +78,11 @@ async function speakPreview(voiceId: string) {
 interface Integration {
   voice_provider: string | null; voice_account_sid: string | null; voice_phone_number: string | null
   voice_api_key: string | null; voice_app_sid: string | null; voice_region: string | null
+  voice_base_url: string | null
   voice_recording_enabled: boolean; voice_speech_timeout: number | null; voice_machine_detection: boolean; voice_tts_voice: string
   voice_media_streams_enabled: boolean; voice_stream_url: string | null
   voice_status: string; voice_last_tested_at: string | null; voice_latency_ms: number | null; voice_last_error: string | null
-  voice_auth_token_set: boolean; voice_api_secret_set: boolean
+  voice_auth_token_set: boolean; voice_api_secret_set: boolean; voice_webhook_secret_set: boolean
   call_forwarding_type: string | null; business_hours: string | null; fallback_message: string | null
   whatsapp_provider: string; whatsapp_account_sid: string | null; whatsapp_messaging_service_sid: string | null
   whatsapp_number: string | null; whatsapp_display_name: string | null
@@ -161,7 +162,7 @@ export function BusinessAdminVoice() {
   const { data: voiceLogs } = useQuery({ queryKey: ['integrations', 'voice-logs'], queryFn: async () => (await api.get<ApiSuccess<TestLog[]>>('/integrations/voice/logs')).data.data })
   const { data: waLogs } = useQuery({ queryKey: ['integrations', 'wa-logs'], queryFn: async () => (await api.get<ApiSuccess<TestLog[]>>('/integrations/whatsapp/logs')).data.data })
 
-  const [voice, setVoice] = useState({ voice_account_sid: '', voice_auth_token: '', voice_api_key: '', voice_api_secret: '', voice_app_sid: '', voice_region: 'us1', voice_phone_number: '', voice_recording_enabled: false, voice_speech_timeout: 5, voice_machine_detection: false, voice_media_streams_enabled: false, voice_stream_url: '', voice_tts_voice: 'Polly.Joanna', call_forwarding_type: 'Always Forward', business_hours: '', fallback_message: '' })
+  const [voice, setVoice] = useState({ voice_provider: 'twilio', voice_account_sid: '', voice_auth_token: '', voice_api_key: '', voice_api_secret: '', voice_app_sid: '', voice_region: 'us1', voice_base_url: '', voice_phone_number: '', voice_recording_enabled: false, voice_speech_timeout: 5, voice_machine_detection: false, voice_media_streams_enabled: false, voice_stream_url: '', voice_tts_voice: 'Polly.Joanna', call_forwarding_type: 'Always Forward', business_hours: '', fallback_message: '' })
   const [wa, setWa] = useState({ whatsapp_account_sid: '', whatsapp_auth_token: '', whatsapp_api_key: '', whatsapp_api_secret: '', whatsapp_messaging_service_sid: '', whatsapp_number: '', whatsapp_display_name: '', whatsapp_sandbox: true, whatsapp_media_enabled: true, whatsapp_interactive_enabled: true, whatsapp_greeting: '', whatsapp_status_callback_url: '' })
   const [testCallTo, setTestCallTo] = useState('')
   const [testWaTo, setTestWaTo] = useState('')
@@ -170,7 +171,7 @@ export function BusinessAdminVoice() {
   const i = data?.integration
   useEffect(() => {
     if (!i) return
-    setVoice((f) => ({ ...f, voice_account_sid: i.voice_account_sid ?? '', voice_api_key: i.voice_api_key ?? '', voice_app_sid: i.voice_app_sid ?? '', voice_region: i.voice_region ?? 'us1', voice_phone_number: i.voice_phone_number ?? '', voice_recording_enabled: i.voice_recording_enabled, voice_speech_timeout: i.voice_speech_timeout ?? 5, voice_machine_detection: i.voice_machine_detection, voice_media_streams_enabled: i.voice_media_streams_enabled, voice_stream_url: i.voice_stream_url ?? '', voice_tts_voice: i.voice_tts_voice ?? 'Polly.Joanna', call_forwarding_type: i.call_forwarding_type ?? 'Always Forward', business_hours: i.business_hours ?? '', fallback_message: i.fallback_message ?? '' }))
+    setVoice((f) => ({ ...f, voice_provider: i.voice_provider ?? 'twilio', voice_account_sid: i.voice_account_sid ?? '', voice_api_key: i.voice_api_key ?? '', voice_app_sid: i.voice_app_sid ?? '', voice_region: i.voice_region ?? 'us1', voice_base_url: i.voice_base_url ?? '', voice_phone_number: i.voice_phone_number ?? '', voice_recording_enabled: i.voice_recording_enabled, voice_speech_timeout: i.voice_speech_timeout ?? 5, voice_machine_detection: i.voice_machine_detection, voice_media_streams_enabled: i.voice_media_streams_enabled, voice_stream_url: i.voice_stream_url ?? '', voice_tts_voice: i.voice_tts_voice ?? 'Polly.Joanna', call_forwarding_type: i.call_forwarding_type ?? 'Always Forward', business_hours: i.business_hours ?? '', fallback_message: i.fallback_message ?? '' }))
     setWa((f) => ({ ...f, whatsapp_account_sid: i.whatsapp_account_sid ?? '', whatsapp_messaging_service_sid: i.whatsapp_messaging_service_sid ?? '', whatsapp_number: i.whatsapp_number ?? '', whatsapp_display_name: i.whatsapp_display_name ?? '', whatsapp_sandbox: i.whatsapp_sandbox, whatsapp_media_enabled: i.whatsapp_media_enabled, whatsapp_interactive_enabled: i.whatsapp_interactive_enabled, whatsapp_greeting: i.whatsapp_greeting ?? '', whatsapp_status_callback_url: i.whatsapp_status_callback_url ?? '' }))
   }, [i])
 
@@ -179,7 +180,7 @@ export function BusinessAdminVoice() {
   }
 
   const saveVoice = useMutation({
-    mutationFn: () => api.put('/integrations/voice', { voice_provider: 'twilio', ...voice }),
+    mutationFn: () => api.put('/integrations/voice', voice),
     onSuccess: refresh,
   })
   const saveWa = useMutation({
@@ -207,12 +208,26 @@ export function BusinessAdminVoice() {
       {/* ── VOICE ── */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="sh"><div>
-          <div className="ct">Voice — Twilio</div>
+          <div className="ct">Voice — {voice.voice_provider === 'infobip' ? 'Infobip' : 'Twilio'}</div>
           <div className="cs">Status: {statusBadge(i?.voice_status, i?.voice_last_error)}
             {i?.voice_last_tested_at && <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--t3)' }}>Last tested {new Date(i.voice_last_tested_at).toLocaleString()}{i.voice_latency_ms != null && ` · ${i.voice_latency_ms}ms`}</span>}
           </div>
         </div></div>
 
+        <div className="fg"><label className="fl">Provider</label>
+          <select value={voice.voice_provider} onChange={(e) => setVoice((f) => ({ ...f, voice_provider: e.target.value }))} style={{ maxWidth: 220 }}>
+            <option value="twilio">Twilio</option><option value="infobip">Infobip</option>
+          </select></div>
+
+        {voice.voice_provider === 'infobip' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="fg"><label className="fl">API Key {i?.voice_api_secret_set && <span className="bdg b-ok" style={{ marginLeft: 6 }}>set</span>}</label><input type="password" placeholder={i?.voice_api_secret_set ? '•••••••• (saved — leave blank to keep)' : 'Infobip API key'} value={voice.voice_api_secret} onChange={(e) => setVoice((f) => ({ ...f, voice_api_secret: e.target.value }))} /></div>
+            <div className="fg"><label className="fl">Base URL</label><input placeholder="https://xxxxx.api.infobip.com" value={voice.voice_base_url} onChange={(e) => setVoice((f) => ({ ...f, voice_base_url: e.target.value }))} /></div>
+            <div className="fg"><label className="fl">Phone Number</label><input placeholder="+14155551234" value={voice.voice_phone_number} onChange={(e) => setVoice((f) => ({ ...f, voice_phone_number: e.target.value }))} /></div>
+            <div className="fg"><label className="fl">Speech Timeout (s)</label><input type="number" min={1} max={60} value={voice.voice_speech_timeout} onChange={(e) => setVoice((f) => ({ ...f, voice_speech_timeout: Number(e.target.value) }))} /></div>
+            <div className="fg"><label className="fl">Calls Configuration ID</label><input readOnly value={voice.voice_account_sid} placeholder="auto-created on Verify" style={roField} /></div>
+          </div>
+        ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div className="fg"><label className="fl">Account SID</label><input placeholder="ACxxxxxxxx" value={voice.voice_account_sid} onChange={(e) => setVoice((f) => ({ ...f, voice_account_sid: e.target.value }))} /></div>
           <div className="fg"><label className="fl">Auth Token {i?.voice_auth_token_set && <span className="bdg b-ok" style={{ marginLeft: 6 }}>set</span>}</label><input type="password" placeholder={i?.voice_auth_token_set ? '•••••••• (saved — leave blank to keep)' : 'Twilio auth token'} value={voice.voice_auth_token} onChange={(e) => setVoice((f) => ({ ...f, voice_auth_token: e.target.value }))} /></div>
@@ -235,6 +250,7 @@ export function BusinessAdminVoice() {
             <div className="cs" style={{ margin: '4px 0 0' }}>Instant in-browser preview — no call placed</div>
           </div>
         </div>
+        )}
 
         <div style={{ display: 'flex', gap: 18, margin: '4px 0 14px', flexWrap: 'wrap' }}>
           {([['voice_recording_enabled', 'Call Recording'], ['voice_machine_detection', 'Machine Detection'], ['voice_media_streams_enabled', 'Media Streams (realtime audio)']] as const).map(([k, label]) => (
@@ -247,7 +263,11 @@ export function BusinessAdminVoice() {
           <div className="fg"><label className="fl">Stream URL (wss://)</label><input placeholder="wss://your-stream-endpoint" value={voice.voice_stream_url} onChange={(e) => setVoice((f) => ({ ...f, voice_stream_url: e.target.value }))} /></div>
         )}
 
+        {voice.voice_provider === 'infobip' ? (
+          <div className="info-box"><span>ℹ️</span><span>Infobip has no one-click webhook wiring yet — click "Verify" to create the Calls Configuration, then "Wire Webhook" for the exact URL + events to paste into the Infobip Portal (Calls Configuration → Webhook), and link your number there too (Numbers → your number → Voice → Forward to subscription).</span></div>
+        ) : (
         <div className="fg"><label className="fl">Voice Webhook URL — auto-wired via button below, or paste into Twilio Console</label><input value={data?.voice_webhook_url ?? ''} readOnly style={roField} /></div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div className="fg"><label className="fl">Status Callback URL</label><input value={data?.voice_status_callback_url ?? ''} readOnly style={roField} /></div>
           <div className="fg"><label className="fl">Recording Callback URL</label><input value={data?.recording_callback_url ?? ''} readOnly style={roField} /></div>
@@ -257,9 +277,9 @@ export function BusinessAdminVoice() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="btn bp" disabled={saveVoice.isPending} onClick={() => saveVoice.mutate()}>{saveVoice.isPending ? 'Saving…' : 'Save'}</button>
           <button className="btn bs" disabled={vVerify.m.isPending} onClick={() => vVerify.m.mutate(undefined)}>Verify Credentials</button>
-          <button className="btn bs" disabled={vSync.m.isPending} onClick={() => vSync.m.mutate(undefined)}>Sync Numbers</button>
-          <button className="btn bs" disabled={vWire.m.isPending} onClick={() => confirmAction({ title: 'Wire webhook?', message: 'Points your Twilio number webhook at this platform.', confirmText: 'Wire' }).then((ok) => ok && vWire.m.mutate(undefined))}>Wire Webhook</button>
-          <button className="btn bs" onClick={fetchTwiml}>Generate TwiML</button>
+          {voice.voice_provider !== 'infobip' && <button className="btn bs" disabled={vSync.m.isPending} onClick={() => vSync.m.mutate(undefined)}>Sync Numbers</button>}
+          <button className="btn bs" disabled={vWire.m.isPending} onClick={() => confirmAction({ title: 'Wire webhook?', message: voice.voice_provider === 'infobip' ? 'Creates the Calls Configuration and returns the webhook URL to paste into the Infobip Portal.' : 'Points your Twilio number webhook at this platform.', confirmText: 'Wire' }).then((ok) => ok && vWire.m.mutate(undefined))}>Wire Webhook</button>
+          {voice.voice_provider !== 'infobip' && <button className="btn bs" onClick={fetchTwiml}>Generate TwiML</button>}
           <input placeholder="+9715xxxxxxx" value={testCallTo} onChange={(e) => setTestCallTo(e.target.value)} style={{ width: 150 }} />
           <button className="btn bok bsm" disabled={vCall.m.isPending || !testCallTo} onClick={() => confirmAction({ title: 'Place test call?', message: `A real call will be placed to ${testCallTo}.`, confirmText: 'Call' }).then((ok) => ok && vCall.m.mutate({ to: testCallTo }))}>Create Test Call</button>
         </div>

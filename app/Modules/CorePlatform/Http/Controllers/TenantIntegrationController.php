@@ -63,13 +63,14 @@ class TenantIntegrationController
         $tid = $this->tenantId($request, $tenantId);
 
         $validated = $request->validate([
-            'voice_provider' => ['required', 'string', 'in:twilio,vonage'],
+            'voice_provider' => ['required', 'string', 'in:twilio,vonage,infobip'],
             'voice_account_sid' => ['sometimes', 'nullable', 'string', 'max:255'],
             'voice_auth_token' => ['sometimes', 'nullable', 'string', 'max:255'],
             'voice_api_key' => ['sometimes', 'nullable', 'string', 'max:255'],
             'voice_api_secret' => ['sometimes', 'nullable', 'string', 'max:255'],
             'voice_app_sid' => ['sometimes', 'nullable', 'string', 'max:255'],
             'voice_region' => ['sometimes', 'nullable', 'string', 'in:us1,ie1,au1'],
+            'voice_base_url' => ['sometimes', 'nullable', 'string', 'max:255', 'url'],
             'voice_phone_number' => ['sometimes', 'nullable', 'string', 'max:64'],
             'voice_recording_enabled' => ['sometimes', 'boolean'],
             'voice_speech_timeout' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:60'],
